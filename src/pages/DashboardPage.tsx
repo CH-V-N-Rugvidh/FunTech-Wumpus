@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Player } from '../types';
+import { gameApi } from '../services/api';
 import WumpusGrid from '../components/WumpusGrid';
 import Leaderboard from '../components/Leaderboard';
 import { Monitor, Users, Trophy, Clock, Zap } from 'lucide-react';
@@ -9,17 +10,17 @@ export default function DashboardPage() {
   const [activePlayers, setActivePlayers] = useState<Player[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Get live data from localStorage (shared with game state)
+  // Get live data from database
   const updatePlayersFromStorage = useCallback(() => {
     try {
-      const storedPlayers = localStorage.getItem('funtech-wumpus-players');
-      if (storedPlayers) {
-        const parsedPlayers: Player[] = JSON.parse(storedPlayers);
-        setPlayers(parsedPlayers);
-        setActivePlayers(parsedPlayers.filter(p => !p.completed));
-      }
+      gameApi.getAllPlayers().then(dbPlayers => {
+        setPlayers(dbPlayers);
+        setActivePlayers(dbPlayers.filter(p => !p.completed));
+      }).catch(error => {
+        console.error('Error fetching players:', error);
+      });
     } catch (error) {
-      console.error('Error reading players from storage:', error);
+      console.error('Error updating players:', error);
     }
   }, []);
 
@@ -46,9 +47,9 @@ export default function DashboardPage() {
   const totalScore = players.reduce((sum, p) => sum + (p.score || 0), 0);
 
   return (
-    <div className="min-h-screen text-white">
+    <div className="min-h-screen text-white pt-20">
       {/* Header */}
-      <div className="glass-dark border-b border-white/10 p-6">
+      <div className="glass-dark border-b border-white/10 p-6 fixed top-0 left-0 right-0 z-30">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
@@ -71,7 +72,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Bar */}
-      <div className="glass border-b border-white/10 p-6">
+      <div className="glass border-b border-white/10 p-6 mt-4">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="glass-dark rounded-xl p-6 text-center hover:scale-105 transition-transform duration-300">

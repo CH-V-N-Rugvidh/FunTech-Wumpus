@@ -17,7 +17,8 @@ export default function GamePage() {
     answerQuestion,
     resetGame,
     getLeaderboard,
-    loadCustomQuestions,
+    gameSession,
+    questionAttempts,
     startPosition,
     goalPosition,
     players
@@ -25,19 +26,6 @@ export default function GamePage() {
 
   const [playerName, setPlayerName] = useState('');
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-
-  // Load custom questions from localStorage on component mount
-  useEffect(() => {
-    try {
-      const customQuestions = localStorage.getItem('custom-questions');
-      if (customQuestions) {
-        const questions: Question[] = JSON.parse(customQuestions);
-        loadCustomQuestions(questions);
-      }
-    } catch (error) {
-      console.error('Error loading custom questions:', error);
-    }
-  }, [loadCustomQuestions]);
 
   const handleStartGame = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +106,7 @@ export default function GamePage() {
             </button>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <GameComplete player={currentPlayer} onRestart={resetGame} />
+            <GameComplete player={currentPlayer} questionAttempts={questionAttempts} onRestart={resetGame} />
             <Leaderboard players={players} />
           </div>
         </div>

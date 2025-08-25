@@ -27,6 +27,32 @@ export interface Player {
   score: number;
 }
 
+export interface GameSession {
+  id: string;
+  playerId: string;
+  questionsAttempted: QuestionAttempt[];
+  startedAt: Date;
+  completedAt?: Date;
+  finalScore: number;
+}
+
+export interface QuestionAttempt {
+  questionId: number;
+  question: string;
+  options: string[];
+  selectedAnswer: number;
+  correctAnswer: number;
+  isCorrect: boolean;
+  explanation?: string;
+  attemptedAt: Date;
+}
+
+export interface Admin {
+  id: number;
+  username: string;
+  email: string;
+}
+
 export interface GameState {
   currentQuestion: Question | null;
   players: Player[];

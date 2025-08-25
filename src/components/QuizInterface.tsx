@@ -26,15 +26,15 @@ export default function QuizInterface({ question, onAnswer, disabled = false }: 
     setSelectedOption(optionIndex);
     setIsAnswered(true);
     
-    // Show explanation if available
-    if (question.explanation) {
+    // Show explanation only if answer is wrong and explanation is available
+    if (optionIndex !== question.correctAnswer && question.explanation) {
       setShowExplanation(true);
     }
     
     // Delay before calling onAnswer to show feedback
     setTimeout(() => {
       onAnswer(optionIndex);
-    }, question.explanation ? 3000 : 1500);
+    }, (optionIndex !== question.correctAnswer && question.explanation) ? 3000 : 1500);
   };
 
   const getOptionClass = (optionIndex: number) => {

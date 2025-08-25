@@ -54,6 +54,17 @@ body {
   overflow-x: hidden;
 }
 
+.fixed.top-4.right-4 {
+  z-index: 40;
+}
+
+/* Dashboard header improvements */
+.dashboard-header {
+  backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(10, 10, 15, 0.85);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+}
+
 /* Enhanced Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

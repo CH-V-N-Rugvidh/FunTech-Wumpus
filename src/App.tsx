@@ -1,17 +1,28 @@
 import React, { useState } from 'react';
 import GamePage from './pages/GamePage';
 import DashboardPage from './pages/DashboardPage';
-import { Monitor, Gamepad2, Upload } from 'lucide-react';
-import CSVUploader from './components/CSVUploader';
+import AdminPage from './pages/AdminPage';
+import { Monitor, Gamepad2, Shield } from 'lucide-react';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'game' | 'dashboard'>('game');
-  const [showCSVUploader, setShowCSVUploader] = useState(false);
+  const [currentView, setCurrentView] = useState<'game' | 'dashboard' | 'admin'>('game');
+
+  // Check if accessing admin route
+  React.useEffect(() => {
+    const path = window.location.pathname;
+    if (path === '/admin') {
+      setCurrentView('admin');
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-700">
+      {currentView === 'admin' ? (
+        <AdminPage />
+      ) : (
+        <>
       {/* Navigation */}
-      <div className="fixed top-4 right-4 z-50">
+          <div className="fixed top-4 right-4 z-40">
         <div className="glass rounded-xl p-3 shadow-2xl">
           <div className="flex space-x-2 flex-wrap">
             <button
@@ -36,23 +47,13 @@ function App() {
               <Monitor className="w-4 h-4" />
               <span>Dashboard</span>
             </button>
-            <button
-              onClick={() => setShowCSVUploader(true)}
-              className="px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 text-white hover:bg-white/20 btn-glow"
-            >
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">CSV</span>
-            </button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       {currentView === 'game' ? <GamePage /> : <DashboardPage />}
-      
-      {/* CSV Uploader Modal */}
-      {showCSVUploader && (
-        <CSVUploader onClose={() => setShowCSVUploader(false)} />
+        </>
       )}
     </div>
   );

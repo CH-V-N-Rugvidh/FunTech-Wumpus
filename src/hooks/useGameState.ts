@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
-import { Player, Question, Position } from '../types';
-import { getRandomQuestion } from '../data/questions';
+import { Player, Question, Position, GameSession, QuestionAttempt } from '../types';
+import { gameApi } from '../services/api';
 import { getNextOptimalMove, getRandomMove, calculateDistance } from '../utils/pathfinding';
+import React from 'react';
 
 const GRID_SIZE = 10;
 const START_POSITION: Position = { x: 0, y: 0 };
@@ -12,10 +13,74 @@ export function useGameState() {
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
-  const [customQuestions, setCustomQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [gameSession, setGameSession] = useState<GameSession | null>(null);
+  const [questionAttempts, setQuestionAttempts] = useState<QuestionAttempt[]>([]);
+
+  // Load questions from database
+  const loadQuestions = useCallback(async () => {
+    try {
+      const dbQuestions = await gameApi.getQuestions();
+      setQuestions(dbQuestions);
+    } catch (error) {
+      console.error('Error loading questions:', error);
+      // Fallback to default questions if database fails
+      const { techQuestions } = await import('../data/questions');
+      setQuestions(techQuestions);
+    }
+  }, []);
+
+  // Load players from database
+  const loadPlayers = useCallback(async () => {
+    try {
+      const dbPlayers = await gameApi.getAllPlayers();
+      setPlayers(dbPlayers);
+    } catch (error) {
+      console.error('Error loading players:', error);
+    }
+  }, []);
+
+  // Initialize data on first load
+  React.useEffect(() => {
+    loadQuestions();
+    loadPlayers();
+  }, [loadQuestions, loadPlayers]);
+
+  // Get random question
+  const getRandomQuestion = useCallback((excludeIds: number[] = []): Question | null => {
+    const availableQuestions = questions.filter(q => !excludeIds.includes(q.id));
+    
+    if (availableQuestions.length === 0) {
+      return questions.length > 0 ? questions[Math.floor(Math.random() * questions.length)] : null;
+    }
+    
+    const randomIndex = Math.floor(Math.random() * availableQuestions.length);
+    const question = { ...availableQuestions[randomIndex] };
+    
+    // Shuffle options
+    const shuffledOptions = [...question.options];
+    const correctOption = shuffledOptions[question.correctAnswer];
+    
+    for (let i = shuffledOptions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
+    }
+    
+    question.options = shuffledOptions;
+    question.correctAnswer = shuffledOptions.indexOf(correctOption);
+    
+    return question;
+  }, [questions]);
 
   const createPlayer = useCallback((name: string) => {
+    if (questions.length === 0) {
+      console.error('No questions available');
+      return null;
+    }
+
     const playerId = `player-${Date.now()}-${Math.random()}`;
+    const sessionId = `session-${Date.now()}-${Math.random()}`;
+    
     const newPlayer: Player = {
       id: playerId,
       name,
@@ -26,37 +91,51 @@ export function useGameState() {
       correctAnswers: 0,
       completed: false,
       askedQuestions: [],
-      score: 0
+      score: 0,
+      gameSessionId: sessionId
     };
 
     const updatedPlayers = [...players, newPlayer];
     setPlayers(updatedPlayers);
     setCurrentPlayer(newPlayer);
     setGameStarted(true);
+    setQuestionAttempts([]);
     
-    // Save to localStorage for dashboard
+    // Create game session
+    const newGameSession: GameSession = {
+      id: sessionId,
+      playerId,
+      questionsAttempted: [],
+      startedAt: new Date(),
+      finalScore: 0
+    };
+    setGameSession(newGameSession);
+    
+    // Save to database
     try {
-      localStorage.setItem('funtech-wumpus-players', JSON.stringify(updatedPlayers));
+      gameApi.savePlayer(newPlayer);
+      gameApi.saveGameSession(newGameSession);
     } catch (error) {
-      console.error('Error saving players to storage:', error);
+      console.error('Error saving to database:', error);
     }
     
     // Generate first question
-    const questionPool = customQuestions.length > 0 ? customQuestions : undefined;
-    const firstQuestion = getRandomQuestion([], questionPool);
-    setCurrentQuestion(firstQuestion);
-    
-    // Update player with first question
-    const playerWithQuestion = { ...newPlayer, askedQuestions: [firstQuestion.id] };
-    setCurrentPlayer(playerWithQuestion);
-    const playersWithQuestion = updatedPlayers.map(p => p.id === playerId ? playerWithQuestion : p);
-    setPlayers(playersWithQuestion);
+    const firstQuestion = getRandomQuestion([]);
+    if (firstQuestion) {
+      setCurrentQuestion(firstQuestion);
+      
+      // Update player with first question
+      const playerWithQuestion = { ...newPlayer, askedQuestions: [firstQuestion.id] };
+      setCurrentPlayer(playerWithQuestion);
+      const playersWithQuestion = updatedPlayers.map(p => p.id === playerId ? playerWithQuestion : p);
+      setPlayers(playersWithQuestion);
+    }
     
     return newPlayer;
-  }, [players, customQuestions]);
+  }, [players, questions, getRandomQuestion]);
 
-  const answerQuestion = useCallback((selectedAnswer: number) => {
-    if (!currentPlayer || !currentQuestion) return;
+  const answerQuestion = useCallback(async (selectedAnswer: number) => {
+    if (!currentPlayer || !currentQuestion || !gameSession) return;
 
     const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
     const distanceToGoal = calculateDistance(currentPlayer.currentPosition, GOAL_POSITION);
@@ -64,6 +143,19 @@ export function useGameState() {
     const difficultyMultiplier = currentQuestion.difficulty === 'hard' ? 3 : currentQuestion.difficulty === 'medium' ? 2 : 1;
     const distanceBonus = Math.max(0, 10 - distanceToGoal);
     const questionScore = (baseScore + distanceBonus) * difficultyMultiplier;
+    
+    // Create question attempt record
+    const attempt: QuestionAttempt = {
+      questionId: currentQuestion.id,
+      question: currentQuestion.question,
+      options: currentQuestion.options,
+      selectedAnswer,
+      correctAnswer: currentQuestion.correctAnswer,
+      isCorrect,
+      explanation: currentQuestion.explanation,
+      attemptedAt: new Date()
+    };
+    setQuestionAttempts(prev => [...prev, attempt]);
     
     let newPosition: Position;
 
@@ -99,11 +191,27 @@ export function useGameState() {
     const updatedPlayers = players.map(p => p.id === updatedPlayer.id ? updatedPlayer : p);
     setPlayers(updatedPlayers);
     
-    // Save to localStorage for dashboard
+    // Update game session
+    const updatedSession = {
+      ...gameSession,
+      questionsAttempted: [...questionAttempts, attempt],
+      finalScore: updatedPlayer.score,
+      ...(updatedPlayer.completed && { completedAt: new Date() })
+    };
+    setGameSession(updatedSession);
+    
+    // Save to database
     try {
-      localStorage.setItem('funtech-wumpus-players', JSON.stringify(updatedPlayers));
+      await gameApi.savePlayer(updatedPlayer);
+      await gameApi.saveGameSession(updatedSession);
+      await gameApi.saveQuestionAttempt({
+        sessionId: gameSession.id,
+        questionId: currentQuestion.id,
+        selectedAnswer,
+        isCorrect
+      });
     } catch (error) {
-      console.error('Error saving players to storage:', error);
+      console.error('Error saving to database:', error);
     }
 
     // If game is complete, don't generate new question
@@ -113,8 +221,7 @@ export function useGameState() {
     }
 
     // Generate next question immediately
-    const questionPool = customQuestions.length > 0 ? customQuestions : undefined;
-    const nextQuestion = getRandomQuestion(updatedPlayer.askedQuestions, questionPool);
+    const nextQuestion = getRandomQuestion(updatedPlayer.askedQuestions);
     
     if (nextQuestion) {
       setCurrentQuestion(nextQuestion);
@@ -130,12 +237,14 @@ export function useGameState() {
       );
       setPlayers(playersWithNewQuestion);
     }
-  }, [currentPlayer, currentQuestion, customQuestions, players]);
+  }, [currentPlayer, currentQuestion, gameSession, questionAttempts, players, getRandomQuestion]);
 
   const resetGame = useCallback(() => {
     setCurrentPlayer(null);
     setCurrentQuestion(null);
     setGameStarted(false);
+    setGameSession(null);
+    setQuestionAttempts([]);
   }, []);
 
   const getLeaderboard = useCallback(() => {
@@ -150,9 +259,21 @@ export function useGameState() {
       .slice(0, 10);
   }, [players]);
 
-  const loadCustomQuestions = useCallback((questions: Question[]) => {
-    setCustomQuestions(questions);
+  // Load existing player if returning to game
+  const loadExistingPlayer = useCallback(async (playerId: string) => {
+    try {
+      const player = await gameApi.getPlayer(playerId);
+      const session = await gameApi.getGameSession(player.gameSessionId);
+      
+      setCurrentPlayer(player);
+      setGameSession(session);
+      setGameStarted(true);
+      setQuestionAttempts(session.questionsAttempted || []);
+    } catch (error) {
+      console.error('Error loading existing player:', error);
+    }
   }, []);
+
   return {
     players,
     currentPlayer,
@@ -162,8 +283,9 @@ export function useGameState() {
     answerQuestion,
     resetGame,
     getLeaderboard,
-    loadCustomQuestions,
-    customQuestions,
+    loadExistingPlayer,
+    gameSession,
+    questionAttempts,
     startPosition: START_POSITION,
     goalPosition: GOAL_POSITION,
     gridSize: GRID_SIZE

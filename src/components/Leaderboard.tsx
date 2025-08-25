@@ -1,6 +1,6 @@
 import React from 'react';
 import { Player } from '../types';
-import { Trophy, Medal, Award, Clock, Zap } from 'lucide-react';
+import { Trophy, Target, Medal, Award, Clock, Zap } from 'lucide-react';
 
 interface LeaderboardProps {
   players: Player[];
