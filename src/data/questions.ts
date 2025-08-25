@@ -8,7 +8,8 @@ export const techQuestions: Question[] = [
     options: ["Encrypt data", "Validate transactions", "Store files", "Manage users"],
     correctAnswer: 1,
     category: 'emerging-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "Consensus algorithms ensure all nodes in a blockchain network agree on the validity of transactions."
   },
   {
     id: 2,
@@ -16,7 +17,8 @@ export const techQuestions: Question[] = [
     options: ["FTP", "SFTP", "SMTP", "HTTP"],
     correctAnswer: 1,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "SFTP (SSH File Transfer Protocol) provides secure file transfer capabilities over SSH."
   },
   {
     id: 3,
@@ -24,7 +26,8 @@ export const techQuestions: Question[] = [
     options: ["Lower power consumption", "Parallel processing of complex problems", "Cheaper hardware", "Better graphics"],
     correctAnswer: 1,
     category: 'emerging-tech',
-    difficulty: 'hard'
+    difficulty: 'hard',
+    explanation: "Quantum computers can process certain complex problems exponentially faster through quantum parallelism."
   },
   {
     id: 4,
@@ -32,7 +35,8 @@ export const techQuestions: Question[] = [
     options: ["Google", "Facebook", "Apple", "Microsoft"],
     correctAnswer: 1,
     category: 'emerging-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "Facebook rebranded to Meta in 2021 to reflect its focus on building the metaverse."
   },
   {
     id: 5,
@@ -40,7 +44,8 @@ export const techQuestions: Question[] = [
     options: ["Non-Fungible Token", "Network File Transfer", "New File Type", "Next Future Technology"],
     correctAnswer: 0,
     category: 'emerging-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "NFTs are unique digital tokens that represent ownership of digital or physical assets."
   },
   {
     id: 6,
@@ -48,7 +53,8 @@ export const techQuestions: Question[] = [
     options: ["Entanglement", "Superposition", "Decoherence", "Tunneling"],
     correctAnswer: 1,
     category: 'emerging-tech',
-    difficulty: 'hard'
+    difficulty: 'hard',
+    explanation: "Superposition allows quantum bits to exist in multiple states simultaneously until measured."
   },
   {
     id: 7,
@@ -56,7 +62,8 @@ export const techQuestions: Question[] = [
     options: ["Lower cost", "Reduced latency", "Better graphics", "More storage"],
     correctAnswer: 1,
     category: 'emerging-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "5G provides ultra-low latency, enabling real-time communication for IoT applications."
   },
   {
     id: 8,
@@ -64,7 +71,8 @@ export const techQuestions: Question[] = [
     options: ["LIDAR", "Blockchain", "GPS", "WiFi"],
     correctAnswer: 0,
     category: 'emerging-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "LIDAR uses laser pulses to create detailed 3D maps of the vehicle's surroundings."
   },
   {
     id: 9,
@@ -72,7 +80,8 @@ export const techQuestions: Question[] = [
     options: ["Augmented Reality", "Artificial Reality", "Automated Response", "Advanced Rendering"],
     correctAnswer: 0,
     category: 'emerging-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "Augmented Reality overlays digital information onto the real world through devices like smartphones or AR glasses."
   },
   {
     id: 10,
@@ -80,7 +89,8 @@ export const techQuestions: Question[] = [
     options: ["Blockchain", "AI", "Cloud Computing", "Big Data"],
     correctAnswer: 0,
     category: 'emerging-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "Smart contracts are self-executing contracts with terms directly written into blockchain code."
   },
   {
     id: 11,
@@ -88,7 +98,8 @@ export const techQuestions: Question[] = [
     options: ["Alan Turing", "Bill Gates", "Steve Jobs", "Mark Zuckerberg"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "Alan Turing laid the theoretical foundations of computer science and artificial intelligence."
   },
   {
     id: 12,
@@ -96,7 +107,8 @@ export const techQuestions: Question[] = [
     options: ["Central Processing Unit", "Computer Personal Unit", "Central Program Unit", "Computer Processing Unit"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "The CPU is the primary component that executes instructions in a computer system."
   },
   {
     id: 13,
@@ -104,7 +116,8 @@ export const techQuestions: Question[] = [
     options: ["Go", "Python", "Java", "Ruby"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "Go (Golang) was developed by Google for efficient system programming and concurrent applications."
   },
   {
     id: 14,
@@ -112,7 +125,8 @@ export const techQuestions: Question[] = [
     options: ["HyperText Transfer Protocol", "High Tech Transfer Protocol", "HyperText Transport Protocol", "High Text Transfer Protocol"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "HTTP is the foundation protocol for data communication on the World Wide Web."
   },
   {
     id: 15,
@@ -120,7 +134,8 @@ export const techQuestions: Question[] = [
     options: ["Google", "Apple", "Microsoft", "Samsung"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "Google acquired Android Inc. in 2005 and developed it into the world's most popular mobile OS."
   },
   {
     id: 16,
@@ -128,7 +143,8 @@ export const techQuestions: Question[] = [
     options: ["Random Access Memory", "Read Access Memory", "Rapid Access Memory", "Real Access Memory"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "RAM provides temporary storage for data that the CPU needs quick access to."
   },
   {
     id: 17,
@@ -136,7 +152,8 @@ export const techQuestions: Question[] = [
     options: ["Stack", "Queue", "Array", "Tree"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "Stack follows Last In, First Out (LIFO) principle, like a stack of plates."
   },
   {
     id: 18,
@@ -144,7 +161,8 @@ export const techQuestions: Question[] = [
     options: ["Application Programming Interface", "Advanced Programming Interface", "Application Program Integration", "Advanced Program Integration"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "APIs define how different software components should interact with each other."
   },
   {
     id: 19,
@@ -152,7 +170,8 @@ export const techQuestions: Question[] = [
     options: ["Merge Sort", "Bubble Sort", "Selection Sort", "Insertion Sort"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'hard'
+    difficulty: 'hard',
+    explanation: "Merge Sort consistently performs at O(n log n) time complexity in all cases."
   },
   {
     id: 20,
@@ -160,7 +179,8 @@ export const techQuestions: Question[] = [
     options: ["Structured Query Language", "Simple Query Language", "System Query Language", "Standard Query Language"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "SQL is the standard language for managing and manipulating relational databases."
   },
   {
     id: 21,
@@ -168,7 +188,8 @@ export const techQuestions: Question[] = [
     options: ["Facebook", "Google", "Microsoft", "Netflix"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "React was developed by Facebook (now Meta) for building user interfaces."
   },
   {
     id: 22,
@@ -176,7 +197,8 @@ export const techQuestions: Question[] = [
     options: ["255", "256", "127", "128"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "8 bits can represent 2^8 = 256 different values, from 0 to 255."
   },
   {
     id: 23,
@@ -184,7 +206,8 @@ export const techQuestions: Question[] = [
     options: ["HTTPS", "HTTP", "FTP", "SSH"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "HTTPS encrypts data between the browser and server using SSL/TLS protocols."
   },
   {
     id: 24,
@@ -192,7 +215,8 @@ export const techQuestions: Question[] = [
     options: ["Cascading Style Sheets", "Computer Style Sheets", "Creative Style Sheets", "Colorful Style Sheets"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'medium'
+    difficulty: 'medium',
+    explanation: "CSS controls the presentation and styling of HTML documents."
   },
   {
     id: 25,
@@ -200,7 +224,8 @@ export const techQuestions: Question[] = [
     options: ["Singleton", "Observer", "Factory", "Strategy"],
     correctAnswer: 0,
     category: 'general-tech',
-    difficulty: 'hard'
+    difficulty: 'hard',
+    explanation: "The Singleton pattern ensures only one instance of a class exists throughout the application."
   },
   // 100 new questions (medium to hard)
   {
@@ -1005,8 +1030,15 @@ export const techQuestions: Question[] = [
   }
 ];
 
-export function getRandomQuestion(excludeIds: number[] = []): Question {
-  const availableQuestions = techQuestions.filter(q => !excludeIds.includes(q.id));
+export function getRandomQuestion(excludeIds: number[] = [], customQuestions?: Question[]): Question {
+  const questionPool = customQuestions && customQuestions.length > 0 ? customQuestions : techQuestions;
+  const availableQuestions = questionPool.filter(q => !excludeIds.includes(q.id));
+  
+  // If all questions have been asked, reset and start over
+  if (availableQuestions.length === 0) {
+    return questionPool[Math.floor(Math.random() * questionPool.length)];
+  }
+  
   const randomIndex = Math.floor(Math.random() * availableQuestions.length);
   const question = { ...availableQuestions[randomIndex] };
   

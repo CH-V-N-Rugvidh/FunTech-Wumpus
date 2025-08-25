@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameState } from '../hooks/useGameState';
 import WumpusGrid from '../components/WumpusGrid';
 import QuizInterface from '../components/QuizInterface';
 import PlayerStats from '../components/PlayerStats';
 import GameComplete from '../components/GameComplete';
 import Leaderboard from '../components/Leaderboard';
-import { Bot, Play, ArrowLeft } from 'lucide-react';
+import { Bot, Play, ArrowLeft, Sparkles } from 'lucide-react';
+import { Question } from '../types';
 
 export default function GamePage() {
   const {
@@ -16,6 +17,7 @@ export default function GamePage() {
     answerQuestion,
     resetGame,
     getLeaderboard,
+    loadCustomQuestions,
     startPosition,
     goalPosition,
     players
@@ -23,6 +25,19 @@ export default function GamePage() {
 
   const [playerName, setPlayerName] = useState('');
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+
+  // Load custom questions from localStorage on component mount
+  useEffect(() => {
+    try {
+      const customQuestions = localStorage.getItem('custom-questions');
+      if (customQuestions) {
+        const questions: Question[] = JSON.parse(customQuestions);
+        loadCustomQuestions(questions);
+      }
+    } catch (error) {
+      console.error('Error loading custom questions:', error);
+    }
+  }, [loadCustomQuestions]);
 
   const handleStartGame = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,18 +48,21 @@ export default function GamePage() {
 
   if (!gameStarted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4">
+      <div className="min-h-screen p-4">
         <div className="max-w-md mx-auto pt-8">
-          <div className="bg-white rounded-xl shadow-xl p-8">
+          <div className="glass rounded-2xl p-8 shadow-2xl float">
             <div className="text-center mb-8">
-              <Bot className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">FunTech Wumpus</h1>
-              <p className="text-gray-600">Guide the Wumpus through tech challenges!</p>
+              <div className="relative">
+                <Bot className="w-20 h-20 text-white mx-auto mb-4 pulse-glow" />
+                <Sparkles className="w-6 h-6 text-yellow-300 absolute -top-2 -right-2 animate-pulse" />
+              </div>
+              <h1 className="text-4xl font-bold text-white mb-2 gradient-text">FunTech Wumpus</h1>
+              <p className="text-white/80 text-lg">Guide the Wumpus through tech challenges!</p>
             </div>
             
             <form onSubmit={handleStartGame} className="space-y-4">
               <div>
-                <label htmlFor="playerName" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="playerName" className="block text-sm font-medium text-white/90 mb-3">
                   Enter your name to start
                 </label>
                 <input
@@ -53,30 +71,30 @@ export default function GamePage() {
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
                   placeholder="Your name"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-4 glass-dark rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400 focus:outline-none transition-all duration-300"
                   required
                 />
               </div>
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 btn-glow shadow-lg"
               >
                 <Play className="w-5 h-5" />
                 <span>Start Game</span>
               </button>
             </form>
             
-            <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="mt-8 pt-6 border-t border-white/20">
               <button
                 onClick={() => setShowLeaderboard(!showLeaderboard)}
-                className="w-full text-blue-600 hover:text-blue-700 font-medium"
+                className="w-full text-white/80 hover:text-white font-medium transition-colors duration-300"
               >
                 {showLeaderboard ? 'Hide' : 'View'} Leaderboard
               </button>
             </div>
             
             {showLeaderboard && (
-              <div className="mt-4">
+              <div className="mt-6">
                 <Leaderboard players={players} isCompact={true} />
               </div>
             )}
@@ -88,12 +106,12 @@ export default function GamePage() {
 
   if (currentPlayer?.completed) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4">
+      <div className="min-h-screen p-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-6">
             <button
               onClick={resetGame}
-              className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
+              className="inline-flex items-center space-x-2 text-white/80 hover:text-white font-medium transition-colors duration-300 glass px-4 py-2 rounded-lg"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Start</span>
@@ -109,13 +127,13 @@ export default function GamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4">
+    <div className="min-h-screen p-4">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">FunTech Wumpus</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 gradient-text">FunTech Wumpus</h1>
           <button
             onClick={resetGame}
-            className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
+            className="inline-flex items-center space-x-2 text-white/80 hover:text-white font-medium transition-colors duration-300 glass px-4 py-2 rounded-lg"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Start</span>

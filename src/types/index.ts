@@ -10,6 +10,7 @@ export interface Question {
   correctAnswer: number;
   category: 'emerging-tech' | 'general-tech';
   difficulty: 'easy' | 'medium' | 'hard';
+  explanation?: string;
 }
 
 export interface Player {
@@ -22,6 +23,8 @@ export interface Player {
   correctAnswers: number;
   completed: boolean;
   completedAt?: Date;
+  askedQuestions: number[];
+  score: number;
 }
 
 export interface GameState {
@@ -34,4 +37,16 @@ export interface WumpusPath {
   current: Position;
   target: Position;
   path: Position[];
+}
+
+export interface CSVQuestion {
+  question: string;
+  option1: string;
+  option2: string;
+  option3: string;
+  option4: string;
+  correct_answer: string;
+  category: string;
+  difficulty: string;
+  explanation?: string;
 }
