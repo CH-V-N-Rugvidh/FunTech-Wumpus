@@ -85,7 +85,7 @@ export default function DashboardPage() {
               <div className="text-sm text-white/70">Completed</div>
             </div>
             <div className="glass-dark rounded-xl p-6 text-center hover:scale-105 transition-transform duration-300">
-              <Clock className="w-10 h-10 text-blue-400 mx-auto mb-3 pulse-glow" />
+              <Clock className="w-10 h-10 text-blue-400 mx-auto mb-3 pulse-glow " />
               <div className="text-3xl font-bold">{players.length}</div>
               <div className="text-sm text-white/70">Total Players</div>
             </div>

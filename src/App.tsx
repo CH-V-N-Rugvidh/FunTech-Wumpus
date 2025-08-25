@@ -9,7 +9,7 @@ function App() {
   const [showCSVUploader, setShowCSVUploader] = useState(false);
 
   return (
-    <div className="min-h-screen animated-gradient">
+    <div className="min-h-screen bg-gray-700">
       {/* Navigation */}
       <div className="fixed top-4 right-4 z-50">
         <div className="glass rounded-xl p-3 shadow-2xl">
