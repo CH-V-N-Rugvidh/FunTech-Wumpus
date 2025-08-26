@@ -13,7 +13,11 @@ export default function Leaderboard({ players, isCompact = false }: LeaderboardP
     .sort((a, b) => {
       // Primary sort by steps (fewer is better)
       if (a.steps !== b.steps) return a.steps - b.steps;
-      // Secondary sort by score (higher is better)
+      // Secondary sort by completion time (earlier is better)
+      if (a.completedAt && b.completedAt) {
+        return new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime();
+      }
+      // Tertiary sort by score (higher is better)
       return (b.score || 0) - (a.score || 0);
     })
     .slice(0, 10);

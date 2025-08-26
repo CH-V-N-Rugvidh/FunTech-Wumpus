@@ -15,9 +15,12 @@ export interface Question {
 
 export interface Player {
   id: string;
+  gameId: string;
   name: string;
   currentPosition: Position;
   previousPosition: Position | null;
+  pathTaken: Position[];
+  visitedPositions: Position[];
   steps: number;
   questionsAnswered: number;
   correctAnswers: number;
@@ -29,11 +32,14 @@ export interface Player {
 
 export interface GameSession {
   id: string;
+  gameId: string;
   playerId: string;
   questionsAttempted: QuestionAttempt[];
   startedAt: Date;
   completedAt?: Date;
   finalScore: number;
+  pathTaken: Position[];
+  visitedPositions: Position[];
 }
 
 export interface QuestionAttempt {
@@ -75,4 +81,21 @@ export interface CSVQuestion {
   category: string;
   difficulty: string;
   explanation?: string;
+}
+
+export interface Game {
+  id: string;
+  status: 'waiting' | 'active' | 'ended';
+  startedAt?: Date;
+  endedAt?: Date;
+  durationMinutes: number;
+  createdBy: number;
+  createdAt: Date;
+}
+
+export interface WaitingRoomPlayer {
+  id: string;
+  playerName: string;
+  joinedAt: Date;
+  gameId?: string;
 }

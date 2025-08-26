@@ -6,24 +6,25 @@ interface WumpusGridProps {
   currentPosition: Position;
   goalPosition: Position;
   startPosition: Position;
-  path?: Position[];
+  pathTaken?: Position[];
+  visitedPositions?: Position[];
   gridSize?: number;
-  showPath?: boolean;
 }
 
 export default function WumpusGrid({ 
   currentPosition, 
   goalPosition, 
   startPosition,
-  path = [],
+  pathTaken = [],
+  visitedPositions = [],
   gridSize = 10,
-  showPath = false 
 }: WumpusGridProps) {
   const renderCell = (x: number, y: number) => {
     const isStart = x === startPosition.x && y === startPosition.y;
     const isGoal = x === goalPosition.x && y === goalPosition.y;
     const isCurrent = x === currentPosition.x && y === currentPosition.y;
-    const isPath = showPath && path.some(p => p.x === x && p.y === y);
+    const isVisited = visitedPositions.some(p => p.x === x && p.y === y);
+    const isOnPath = pathTaken.some(p => p.x === x && p.y === y);
     
     let cellClass = "w-8 h-8 sm:w-10 sm:h-10 border border-white/20 flex items-center justify-center relative transition-all duration-500";
     
@@ -33,8 +34,10 @@ export default function WumpusGrid({
       cellClass += " bg-red-400/20 border-red-400/50 pulse-glow";
     } else if (isCurrent) {
       cellClass += " bg-blue-400/30 ring-2 ring-blue-400 pulse-glow";
-    } else if (isPath) {
+    } else if (isVisited) {
       cellClass += " bg-yellow-400/20";
+    } else if (isOnPath) {
+      cellClass += " bg-purple-400/10";
     } else {
       cellClass += " bg-white/5 hover:bg-white/10";
     }
@@ -53,7 +56,7 @@ export default function WumpusGrid({
         {isStart && !isCurrent && (
           <Home className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
         )}
-        {isPath && !isCurrent && !isStart && !isGoal && (
+        {isVisited && !isCurrent && !isStart && !isGoal && (
           <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
         )}
       </div>
@@ -86,6 +89,10 @@ export default function WumpusGrid({
         <div className="flex items-center space-x-1">
           <Target className="w-4 h-4 text-red-400" />
           <span className="text-white/80">Goal</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <div className="w-4 h-4 bg-yellow-400/40 rounded border border-yellow-400/60" />
+          <span className="text-white/80">Visited</span>
         </div>
       </div>
     </div>

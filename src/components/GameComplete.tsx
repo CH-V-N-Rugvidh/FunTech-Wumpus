@@ -23,7 +23,7 @@ export default function GameComplete({ player, questionAttempts, onRestart }: Ga
           <Sparkles className="w-8 h-8 text-yellow-300 absolute -top-2 -right-2 animate-pulse" />
         </div>
         <h2 className="text-4xl font-bold text-white mb-2 gradient-text">Congratulations!</h2>
-        <p className="text-lg text-white/80">You've successfully guided the Wumpus to its goal!</p>
+        <p className="text-lg text-white/80">You've successfully guided thez Wumpus to its goal!</p>
       </div>
       
       <div className="glass-dark rounded-xl p-6 mb-6">

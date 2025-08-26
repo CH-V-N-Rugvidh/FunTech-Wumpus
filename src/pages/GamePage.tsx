@@ -5,7 +5,7 @@ import QuizInterface from '../components/QuizInterface';
 import PlayerStats from '../components/PlayerStats';
 import GameComplete from '../components/GameComplete';
 import Leaderboard from '../components/Leaderboard';
-import { Bot, Play, ArrowLeft, Sparkles } from 'lucide-react';
+import { Bot, Clock, Play, ArrowLeft, Users, Sparkles } from 'lucide-react';
 import { Question } from '../types';
 
 export default function GamePage() {
@@ -13,7 +13,13 @@ export default function GamePage() {
     currentPlayer,
     currentQuestion,
     gameStarted,
+    currentGame,
+    gameTimeLeft,
+    isInWaitingRoom,
+    waitingRoomPlayers,
     createPlayer,
+    joinWaitingRoom,
+    leaveWaitingRoom,
     answerQuestion,
     resetGame,
     getLeaderboard,
@@ -27,6 +33,12 @@ export default function GamePage() {
   const [playerName, setPlayerName] = useState('');
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleStartGame = (e: React.FormEvent) => {
     e.preventDefault();
     if (playerName.trim()) {
@@ -34,6 +46,48 @@ export default function GamePage() {
     }
   };
 
+  // Waiting room view
+  if (isInWaitingRoom) {
+    return (
+      <div className="min-h-screen p-4">
+        <div className="max-w-2xl mx-auto pt-8">
+          <div className="glass rounded-2xl p-8 shadow-2xl">
+            <div className="text-center mb-8">
+              <Clock className="w-20 h-20 text-blue-400 mx-auto mb-4 pulse-glow" />
+              <h1 className="text-4xl font-bold text-white mb-2 gradient-text">Waiting Room</h1>
+              <p className="text-white/80 text-lg">Waiting for the game to start...</p>
+            </div>
+            
+            <div className="glass-dark rounded-xl p-6 mb-6">
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center space-x-2">
+                <Users className="w-6 h-6 text-green-400" />
+                <span>Players in Waiting Room ({waitingRoomPlayers.length})</span>
+              </h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {waitingRoomPlayers.map((player, index) => (
+                  <div key={player.id} className="flex items-center justify-between p-3 glass rounded-lg">
+                    <span className="text-white font-medium">{player.player_name}</span>
+                    <span className="text-white/60 text-sm">
+                      {new Date(player.joined_at).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <button
+                onClick={leaveWaitingRoom}
+                className="bg-red-500/20 hover:bg-red-500/30 text-red-300 font-semibold py-3 px-6 rounded-xl transition-all duration-300 border border-red-400/50"
+              >
+                Leave Waiting Room
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!gameStarted) {
     return (
       <div className="min-h-screen p-4">
@@ -46,12 +100,30 @@ export default function GamePage() {
               </div>
               <h1 className="text-4xl font-bold text-white mb-2 gradient-text">FunTech Wumpus</h1>
               <p className="text-white/80 text-lg">Guide the Wumpus through tech challenges!</p>
+              
+              {currentGame && (
+                <div className="mt-4 p-3 glass-dark rounded-lg">
+                  <p className="text-sm text-white/80">
+                    Game Status: <span className={`font-semibold ${
+                      currentGame.status === 'active' ? 'text-green-400' : 
+                      currentGame.status === 'waiting' ? 'text-yellow-400' : 'text-red-400'
+                    }`}>
+                      {currentGame.status.charAt(0).toUpperCase() + currentGame.status.slice(1)}
+                    </span>
+                  </p>
+                  {currentGame.status === 'active' && gameTimeLeft > 0 && (
+                    <p className="text-sm text-blue-400 font-mono">
+                      Time Left: {formatTime(gameTimeLeft)}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             
             <form onSubmit={handleStartGame} className="space-y-4">
               <div>
                 <label htmlFor="playerName" className="block text-sm font-medium text-white/90 mb-3">
-                  Enter your name to start
+                  {currentGame?.status === 'active' ? 'Enter your name to join' : 'Enter your name'}
                 </label>
                 <input
                   type="text"
@@ -68,7 +140,10 @@ export default function GamePage() {
                 className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 btn-glow shadow-lg"
               >
                 <Play className="w-5 h-5" />
-                <span>Start Game</span>
+                <span>
+                  {currentGame?.status === 'active' ? 'Join Game' : 
+                   currentGame?.status === 'waiting' ? 'Join Waiting Room' : 'Start Game'}
+                </span>
               </button>
             </form>
             
@@ -117,8 +192,18 @@ export default function GamePage() {
   return (
     <div className="min-h-screen p-4">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0">
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 gradient-text">FunTech Wumpus</h1>
+          
+          {gameTimeLeft > 0 && (
+            <div className="glass px-4 py-2 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Clock className="w-5 h-5 text-blue-400" />
+                <span className="text-white font-mono text-lg">{formatTime(gameTimeLeft)}</span>
+              </div>
+            </div>
+          )}
+          
           <button
             onClick={resetGame}
             className="inline-flex items-center space-x-2 text-white/80 hover:text-white font-medium transition-colors duration-300 glass px-4 py-2 rounded-lg"
@@ -134,6 +219,8 @@ export default function GamePage() {
               currentPosition={currentPlayer.currentPosition}
               goalPosition={goalPosition}
               startPosition={startPosition}
+              pathTaken={currentPlayer.pathTaken}
+              visitedPositions={currentPlayer.visitedPositions}
             />
             
             {currentQuestion && (

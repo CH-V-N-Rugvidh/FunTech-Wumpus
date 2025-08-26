@@ -57,6 +57,63 @@ export function getRandomMove(current: Position, previousPosition: Position | nu
   return validMoves[randomIndex] || current;
 }
 
+export function getValidMove(
+  current: Position, 
+  goal: Position, 
+  visitedPositions: Position[], 
+  gridSize: number = 10,
+  isCorrectAnswer: boolean = true
+): Position {
+  const possibleMoves = [
+    { x: current.x + 1, y: current.y },
+    { x: current.x - 1, y: current.y },
+    { x: current.x, y: current.y + 1 },
+    { x: current.x, y: current.y - 1 }
+  ];
+  
+  // Filter valid moves within grid bounds
+  let validMoves = possibleMoves.filter(
+    move => move.x >= 0 && move.x < gridSize && move.y >= 0 && move.y < gridSize
+  );
+  
+  // Remove visited positions
+  validMoves = validMoves.filter(
+    move => !visitedPositions.some(pos => pos.x === move.x && pos.y === move.y)
+  );
+  
+  if (isCorrectAnswer && validMoves.length > 0) {
+    // For correct answers, prefer moves that get closer to goal
+    const movesWithDistance = validMoves.map(move => ({
+      position: move,
+      distance: calculateDistance(move, goal)
+    }));
+    
+    movesWithDistance.sort((a, b) => a.distance - b.distance);
+    
+    // 80% chance to take the best move, 20% chance for variety
+    if (Math.random() < 0.8) {
+      return movesWithDistance[0].position;
+    } else {
+      const randomIndex = Math.floor(Math.random() * Math.min(3, movesWithDistance.length));
+      return movesWithDistance[randomIndex].position;
+    }
+  }
+  
+  // For wrong answers or when no unvisited moves available, take any valid move
+  if (validMoves.length === 0) {
+    // If all adjacent positions are visited, allow revisiting (emergency case)
+    validMoves = possibleMoves.filter(
+      move => move.x >= 0 && move.x < gridSize && move.y >= 0 && move.y < gridSize
+    );
+  }
+  
+  if (validMoves.length === 0) {
+    return current; // Stay in place if no moves possible
+  }
+  
+  const randomIndex = Math.floor(Math.random() * validMoves.length);
+  return validMoves[randomIndex];
+}
 export function getNextOptimalMove(current: Position, goal: Position): Position {
   const path = calculateOptimalPath(current, goal);
   return path[0] || current;

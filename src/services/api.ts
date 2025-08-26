@@ -21,6 +21,48 @@ export const adminApi = {
       body: JSON.stringify({ questions })
     });
     return response.json();
+  },
+
+  createGame: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/admin/games`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.json();
+  },
+
+  startGame: async (gameId: string, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/admin/games/${gameId}/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.json();
+  },
+
+  endGame: async (gameId: string, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/admin/games/${gameId}/end`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.json();
+  },
+
+  downloadGameData: async (gameId: string, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/admin/games/${gameId}/download`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.json();
   }
 };
 
@@ -47,6 +89,37 @@ export const gameApi = {
 
   getAllPlayers: async () => {
     const response = await fetch(`${API_BASE_URL}/players`);
+    return response.json();
+  },
+
+  getPlayersByGame: async (gameId: string) => {
+    const response = await fetch(`${API_BASE_URL}/players/${gameId}`);
+    return response.json();
+  },
+
+  getCurrentGame: async () => {
+    const response = await fetch(`${API_BASE_URL}/games/current`);
+    return response.json();
+  },
+
+  joinWaitingRoom: async (playerName: string) => {
+    const response = await fetch(`${API_BASE_URL}/waiting-room/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName })
+    });
+    return response.json();
+  },
+
+  leaveWaitingRoom: async (playerId: string) => {
+    const response = await fetch(`${API_BASE_URL}/waiting-room/${playerId}`, {
+      method: 'DELETE'
+    });
+    return response.json();
+  },
+
+  getWaitingRoomPlayers: async () => {
+    const response = await fetch(`${API_BASE_URL}/waiting-room`);
     return response.json();
   },
 

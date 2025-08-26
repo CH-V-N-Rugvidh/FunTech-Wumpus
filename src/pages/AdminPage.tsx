@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Upload, LogOut, Users, Database } from 'lucide-react';
+import { Shield, Upload, LogOut, Users, Database, Play, Square, Download, Clock } from 'lucide-react';
 import { adminApi } from '../services/api';
 import { parseCSVQuestions, expectedCSVFormat } from '../utils/csvParser';
 import { Admin } from '../types';
@@ -12,6 +12,9 @@ export default function AdminPage() {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [uploadMessage, setUploadMessage] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  const [currentGame, setCurrentGame] = useState<any>(null);
+  const [waitingPlayers, setWaitingPlayers] = useState<any[]>([]);
+  const [gameTimeLeft, setGameTimeLeft] = useState<number>(0);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,9 +118,117 @@ export default function AdminPage() {
     if (token) {
       // You might want to verify the token here
       setIsLoggedIn(true);
+      loadGameStatus();
+      loadWaitingPlayers();
     }
   }, []);
 
+  // Load current game status and waiting players
+  const loadGameStatus = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/games/current');
+      const { game } = await response.json();
+      setCurrentGame(game);
+      
+      if (game && game.status === 'active') {
+        const startTime = new Date(game.started_at).getTime();
+        const duration = game.duration_minutes * 60 * 1000;
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, duration - elapsed);
+        setGameTimeLeft(Math.floor(remaining / 1000));
+      }
+    } catch (error) {
+      console.error('Error loading game status:', error);
+    }
+  };
+
+  const loadWaitingPlayers = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/waiting-room');
+      const players = await response.json();
+      setWaitingPlayers(players);
+    } catch (error) {
+      console.error('Error loading waiting players:', error);
+    }
+  };
+
+  // Set up real-time updates
+  React.useEffect(() => {
+    if (isLoggedIn) {
+      const interval = setInterval(() => {
+        loadGameStatus();
+        loadWaitingPlayers();
+      }, 2000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isLoggedIn]);
+
+  // Game timer
+  React.useEffect(() => {
+    if (gameTimeLeft > 0) {
+      const timer = setTimeout(() => {
+        setGameTimeLeft(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameTimeLeft]);
+
+  const handleCreateGame = async () => {
+    try {
+      const token = localStorage.getItem('admin-token');
+      await adminApi.createGame(token!);
+      loadGameStatus();
+    } catch (error) {
+      console.error('Error creating game:', error);
+    }
+  };
+
+  const handleStartGame = async () => {
+    try {
+      const token = localStorage.getItem('admin-token');
+      await adminApi.startGame(currentGame.id, token!);
+      loadGameStatus();
+      loadWaitingPlayers();
+    } catch (error) {
+      console.error('Error starting game:', error);
+    }
+  };
+
+  const handleEndGame = async () => {
+    try {
+      const token = localStorage.getItem('admin-token');
+      await adminApi.endGame(currentGame.id, token!);
+      loadGameStatus();
+    } catch (error) {
+      console.error('Error ending game:', error);
+    }
+  };
+
+  const handleDownloadData = async () => {
+    try {
+      const token = localStorage.getItem('admin-token');
+      const data = await adminApi.downloadGameData(currentGame.id, token!);
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `game-data-${currentGame.id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading data:', error);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gray-700 flex items-center justify-center p-4">
@@ -198,6 +309,110 @@ export default function AdminPage() {
       </div>
 
       <div className="max-w-4xl mx-auto space-y-8">
+        {/* Game Control Section */}
+        <div className="glass-dark rounded-2xl p-8">
+          <div className="flex items-center space-x-3 mb-6">
+            <Play className="w-8 h-8 text-blue-400" />
+            <h2 className="text-2xl font-bold text-white">Game Control</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Game Status */}
+            <div className="glass rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Current Game Status</h3>
+              {currentGame ? (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/70">Status:</span>
+                    <span className={`font-semibold px-3 py-1 rounded-full text-sm ${
+                      currentGame.status === 'active' ? 'bg-green-400/20 text-green-300' :
+                      currentGame.status === 'waiting' ? 'bg-yellow-400/20 text-yellow-300' :
+                      'bg-red-400/20 text-red-300'
+                    }`}>
+                      {currentGame.status.charAt(0).toUpperCase() + currentGame.status.slice(1)}
+                    </span>
+                  </div>
+                  {currentGame.status === 'active' && gameTimeLeft > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-white/70">Time Left:</span>
+                      <span className="font-mono text-blue-400 text-lg">{formatTime(gameTimeLeft)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/70">Game ID:</span>
+                    <span className="text-white/90 font-mono text-sm">{currentGame.id.slice(-8)}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-white/70">No active game</p>
+              )}
+            </div>
+
+            {/* Waiting Players */}
+            <div className="glass rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                Waiting Players ({waitingPlayers.length})
+              </h3>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {waitingPlayers.length > 0 ? (
+                  waitingPlayers.map((player) => (
+                    <div key={player.id} className="flex justify-between items-center p-2 bg-white/5 rounded">
+                      <span className="text-white text-sm">{player.player_name}</span>
+                      <span className="text-white/60 text-xs">
+                        {new Date(player.joined_at).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-white/70 text-sm">No players waiting</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Control Buttons */}
+          <div className="flex flex-wrap gap-4 mt-6">
+            {!currentGame && (
+              <button
+                onClick={handleCreateGame}
+                className="bg-gradient-to-r from-green-500 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-300 btn-glow flex items-center space-x-2"
+              >
+                <Play className="w-5 h-5" />
+                <span>Create New Game</span>
+              </button>
+            )}
+            
+            {currentGame?.status === 'waiting' && waitingPlayers.length > 0 && (
+              <button
+                onClick={handleStartGame}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-300 btn-glow flex items-center space-x-2"
+              >
+                <Play className="w-5 h-5" />
+                <span>Start Game</span>
+              </button>
+            )}
+            
+            {currentGame?.status === 'active' && (
+              <button
+                onClick={handleEndGame}
+                className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-300 btn-glow flex items-center space-x-2"
+              >
+                <Square className="w-5 h-5" />
+                <span>End Game</span>
+              </button>
+            )}
+            
+            {currentGame && (
+              <button
+                onClick={handleDownloadData}
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-300 btn-glow flex items-center space-x-2"
+              >
+                <Download className="w-5 h-5" />
+                <span>Download Data</span>
+              </button>
+            )}
+          </div>
+        </div>
         {/* Upload Section */}
         <div className="glass-dark rounded-2xl p-8">
           <div className="flex items-center space-x-3 mb-6">

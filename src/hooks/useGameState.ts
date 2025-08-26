@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Player, Question, Position, GameSession, QuestionAttempt } from '../types';
 import { gameApi } from '../services/api';
-import { getNextOptimalMove, getRandomMove, calculateDistance } from '../utils/pathfinding';
+import { getNextOptimalMove, getValidMove, calculateDistance } from '../utils/pathfinding';
 import React from 'react';
 
 const GRID_SIZE = 10;
@@ -13,6 +13,11 @@ export function useGameState() {
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
+  const [currentGame, setCurrentGame] = useState<any>(null);
+  const [gameTimeLeft, setGameTimeLeft] = useState<number>(0);
+  const [waitingRoomPlayers, setWaitingRoomPlayers] = useState<any[]>([]);
+  const [isInWaitingRoom, setIsInWaitingRoom] = useState(false);
+  const [waitingPlayerId, setWaitingPlayerId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [gameSession, setGameSession] = useState<GameSession | null>(null);
   const [questionAttempts, setQuestionAttempts] = useState<QuestionAttempt[]>([]);
@@ -31,20 +36,75 @@ export function useGameState() {
   }, []);
 
   // Load players from database
-  const loadPlayers = useCallback(async () => {
+  const loadPlayers = useCallback(async (gameId?: string) => {
     try {
-      const dbPlayers = await gameApi.getAllPlayers();
+      const dbPlayers = gameId ? await gameApi.getPlayersByGame(gameId) : await gameApi.getAllPlayers();
       setPlayers(dbPlayers);
     } catch (error) {
       console.error('Error loading players:', error);
     }
   }, []);
 
+  // Load current game status
+  const loadCurrentGame = useCallback(async () => {
+    try {
+      const { game } = await gameApi.getCurrentGame();
+      setCurrentGame(game);
+      
+      if (game && game.status === 'active') {
+        const startTime = new Date(game.started_at).getTime();
+        const duration = game.duration_minutes * 60 * 1000;
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, duration - elapsed);
+        setGameTimeLeft(Math.floor(remaining / 1000));
+        
+        // Load players for this game
+        loadPlayers(game.id);
+      }
+    } catch (error) {
+      console.error('Error loading current game:', error);
+    }
+  }, [loadPlayers]);
+
+  // Load waiting room players
+  const loadWaitingRoom = useCallback(async () => {
+    try {
+      const waitingPlayers = await gameApi.getWaitingRoomPlayers();
+      setWaitingRoomPlayers(waitingPlayers);
+    } catch (error) {
+      console.error('Error loading waiting room:', error);
+    }
+  }, []);
   // Initialize data on first load
   React.useEffect(() => {
     loadQuestions();
-    loadPlayers();
-  }, [loadQuestions, loadPlayers]);
+    loadCurrentGame();
+    loadWaitingRoom();
+    
+    // Set up intervals for real-time updates
+    const gameInterval = setInterval(loadCurrentGame, 2000);
+    const waitingInterval = setInterval(loadWaitingRoom, 2000);
+    
+    return () => {
+      clearInterval(gameInterval);
+      clearInterval(waitingInterval);
+    };
+  }, [loadQuestions, loadCurrentGame, loadWaitingRoom]);
+
+  // Game timer effect
+  React.useEffect(() => {
+    if (gameTimeLeft > 0) {
+      const timer = setTimeout(() => {
+        setGameTimeLeft(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (gameTimeLeft === 0 && currentGame?.status === 'active') {
+      // Game time is up
+      setGameStarted(false);
+      setCurrentPlayer(null);
+      setCurrentQuestion(null);
+    }
+  }, [gameTimeLeft, currentGame]);
 
   // Get random question
   const getRandomQuestion = useCallback((excludeIds: number[] = []): Question | null => {
@@ -73,6 +133,13 @@ export function useGameState() {
   }, [questions]);
 
   const createPlayer = useCallback((name: string) => {
+    // Check if there's an active game
+    if (!currentGame || currentGame.status !== 'active') {
+      // Join waiting room instead
+      joinWaitingRoom(name);
+      return null;
+    }
+
     if (questions.length === 0) {
       console.error('No questions available');
       return null;
@@ -83,9 +150,12 @@ export function useGameState() {
     
     const newPlayer: Player = {
       id: playerId,
+      gameId: currentGame.id,
       name,
       currentPosition: { ...START_POSITION },
       previousPosition: null,
+      pathTaken: [{ ...START_POSITION }],
+      visitedPositions: [{ ...START_POSITION }],
       steps: 0,
       questionsAnswered: 0,
       correctAnswers: 0,
@@ -104,10 +174,13 @@ export function useGameState() {
     // Create game session
     const newGameSession: GameSession = {
       id: sessionId,
+      gameId: currentGame.id,
       playerId,
       questionsAttempted: [],
       startedAt: new Date(),
-      finalScore: 0
+      finalScore: 0,
+      pathTaken: [{ ...START_POSITION }],
+      visitedPositions: [{ ...START_POSITION }]
     };
     setGameSession(newGameSession);
     
@@ -132,7 +205,31 @@ export function useGameState() {
     }
     
     return newPlayer;
-  }, [players, questions, getRandomQuestion]);
+  }, [players, questions, getRandomQuestion, currentGame]);
+
+  const joinWaitingRoom = useCallback(async (name: string) => {
+    try {
+      const result = await gameApi.joinWaitingRoom(name);
+      setWaitingPlayerId(result.playerId);
+      setIsInWaitingRoom(true);
+      loadWaitingRoom();
+    } catch (error) {
+      console.error('Error joining waiting room:', error);
+    }
+  }, [loadWaitingRoom]);
+
+  const leaveWaitingRoom = useCallback(async () => {
+    if (waitingPlayerId) {
+      try {
+        await gameApi.leaveWaitingRoom(waitingPlayerId);
+        setWaitingPlayerId(null);
+        setIsInWaitingRoom(false);
+        loadWaitingRoom();
+      } catch (error) {
+        console.error('Error leaving waiting room:', error);
+      }
+    }
+  }, [waitingPlayerId, loadWaitingRoom]);
 
   const answerQuestion = useCallback(async (selectedAnswer: number) => {
     if (!currentPlayer || !currentQuestion || !gameSession) return;
@@ -157,26 +254,26 @@ export function useGameState() {
     };
     setQuestionAttempts(prev => [...prev, attempt]);
     
-    let newPosition: Position;
+    // Get next valid move that hasn't been visited
+    const newPosition = getValidMove(
+      currentPlayer.currentPosition,
+      GOAL_POSITION,
+      currentPlayer.visitedPositions,
+      GRID_SIZE,
+      isCorrect
+    );
 
-    if (isCorrect) {
-      // Move towards goal
-      const optimalMove = getNextOptimalMove(currentPlayer.currentPosition, GOAL_POSITION);
-      // 80% chance of optimal move, 20% chance of random valid move for more interesting gameplay
-      if (Math.random() < 0.8) {
-        newPosition = optimalMove;
-      } else {
-        newPosition = getRandomMove(currentPlayer.currentPosition, currentPlayer.previousPosition, GRID_SIZE);
-      }
-    } else {
-      // Random move
-      newPosition = getRandomMove(currentPlayer.currentPosition, currentPlayer.previousPosition, GRID_SIZE);
-    }
+    const newPathTaken = [...currentPlayer.pathTaken, newPosition];
+    const newVisitedPositions = currentPlayer.visitedPositions.some(
+      pos => pos.x === newPosition.x && pos.y === newPosition.y
+    ) ? currentPlayer.visitedPositions : [...currentPlayer.visitedPositions, newPosition];
 
     const updatedPlayer: Player = {
       ...currentPlayer,
       previousPosition: { ...currentPlayer.currentPosition },
       currentPosition: newPosition,
+      pathTaken: newPathTaken,
+      visitedPositions: newVisitedPositions,
       steps: currentPlayer.steps + 1,
       questionsAnswered: currentPlayer.questionsAnswered + 1,
       correctAnswers: currentPlayer.correctAnswers + (isCorrect ? 1 : 0),
@@ -196,6 +293,8 @@ export function useGameState() {
       ...gameSession,
       questionsAttempted: [...questionAttempts, attempt],
       finalScore: updatedPlayer.score,
+      pathTaken: newPathTaken,
+      visitedPositions: newVisitedPositions,
       ...(updatedPlayer.completed && { completedAt: new Date() })
     };
     setGameSession(updatedSession);
@@ -243,6 +342,8 @@ export function useGameState() {
     setCurrentPlayer(null);
     setCurrentQuestion(null);
     setGameStarted(false);
+    setIsInWaitingRoom(false);
+    setWaitingPlayerId(null);
     setGameSession(null);
     setQuestionAttempts([]);
   }, []);
@@ -279,7 +380,13 @@ export function useGameState() {
     currentPlayer,
     currentQuestion,
     gameStarted,
+    currentGame,
+    gameTimeLeft,
+    isInWaitingRoom,
+    waitingRoomPlayers,
     createPlayer,
+    joinWaitingRoom,
+    leaveWaitingRoom,
     answerQuestion,
     resetGame,
     getLeaderboard,
