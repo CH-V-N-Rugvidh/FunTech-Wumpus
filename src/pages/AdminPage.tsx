@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Upload, LogOut, Users, Database, Play, Square, Download, Clock } from 'lucide-react';
+import { Shield, Upload, LogOut, Users, Database, Play, Square, Download, Clock, History, FileDown } from 'lucide-react';
 import { adminApi } from '../services/api';
 import { parseCSVQuestions, expectedCSVFormat } from '../utils/csvParser';
 import { Admin } from '../types';
@@ -15,6 +15,8 @@ export default function AdminPage() {
   const [currentGame, setCurrentGame] = useState<any>(null);
   const [waitingPlayers, setWaitingPlayers] = useState<any[]>([]);
   const [gameTimeLeft, setGameTimeLeft] = useState<number>(0);
+  const [allGames, setAllGames] = useState<any[]>([]);
+  const [showGameHistory, setShowGameHistory] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,10 +118,10 @@ export default function AdminPage() {
   React.useEffect(() => {
     const token = localStorage.getItem('admin-token');
     if (token) {
-      // You might want to verify the token here
       setIsLoggedIn(true);
       loadGameStatus();
       loadWaitingPlayers();
+      loadAllGames();
     }
   }, []);
 
@@ -149,6 +151,17 @@ export default function AdminPage() {
       setWaitingPlayers(players);
     } catch (error) {
       console.error('Error loading waiting players:', error);
+      setWaitingPlayers([]);
+    }
+  };
+
+  const loadAllGames = async () => {
+    try {
+      const token = localStorage.getItem('admin-token');
+      const games = await adminApi.getAllGames(token!);
+      setAllGames(games);
+    } catch (error) {
+      console.error('Error loading all games:', error);
     }
   };
 
@@ -158,6 +171,7 @@ export default function AdminPage() {
       const interval = setInterval(() => {
         loadGameStatus();
         loadWaitingPlayers();
+        loadAllGames();
       }, 2000);
       
       return () => clearInterval(interval);
@@ -179,6 +193,7 @@ export default function AdminPage() {
       const token = localStorage.getItem('admin-token');
       await adminApi.createGame(token!);
       loadGameStatus();
+      loadAllGames();
     } catch (error) {
       console.error('Error creating game:', error);
     }
@@ -200,6 +215,7 @@ export default function AdminPage() {
       const token = localStorage.getItem('admin-token');
       await adminApi.endGame(currentGame.id, token!);
       loadGameStatus();
+      loadAllGames();
     } catch (error) {
       console.error('Error ending game:', error);
     }
@@ -224,11 +240,71 @@ export default function AdminPage() {
     }
   };
 
+  const handleDownloadAllSessions = async () => {
+    try {
+      const token = localStorage.getItem('admin-token');
+      const data = await adminApi.downloadAllGameSessions(token!);
+      
+      // Convert to CSV
+      const csvContent = convertToCSV(data);
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `all-game-sessions-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading all sessions:', error);
+    }
+  };
+
+  const handleDownloadGameLeaderboard = async (gameId: string) => {
+    try {
+      const token = localStorage.getItem('admin-token');
+      const data = await adminApi.downloadGameLeaderboard(gameId, token!);
+      
+      // Convert to CSV
+      const csvContent = convertToCSV(data);
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `game-${gameId.slice(-8)}-leaderboard.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading leaderboard:', error);
+    }
+  };
+
+  const convertToCSV = (data: any[]) => {
+    if (data.length === 0) return '';
+    
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(','),
+      ...data.map(row => 
+        headers.map(header => {
+          const value = row[header];
+          return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
+        }).join(',')
+      )
+    ];
+    
+    return csvRows.join('\n');
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gray-700 flex items-center justify-center p-4">
@@ -298,17 +374,77 @@ export default function AdminPage() {
               <p className="text-blue-200">Welcome, {admin?.username}</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center space-x-2 text-white/80 hover:text-white bg-red-500/20 hover:bg-red-500/30 px-4 py-2 rounded-lg transition-all duration-300"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Logout</span>
-          </button>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowGameHistory(!showGameHistory)}
+              className="flex items-center space-x-2 text-white/80 hover:text-white bg-blue-500/20 hover:bg-blue-500/30 px-4 py-2 rounded-lg transition-all duration-300"
+            >
+              <History className="w-4 h-4" />
+              <span>Game History</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 text-white/80 hover:text-white bg-red-500/20 hover:bg-red-500/30 px-4 py-2 rounded-lg transition-all duration-300"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Game History Section */}
+        {showGameHistory && (
+          <div className="glass-dark rounded-2xl p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <History className="w-8 h-8 text-purple-400" />
+                <h2 className="text-2xl font-bold text-white">Game History</h2>
+              </div>
+              <button
+                onClick={handleDownloadAllSessions}
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transition-all duration-300 btn-glow flex items-center space-x-2"
+              >
+                <FileDown className="w-4 h-4" />
+                <span>Download All Sessions CSV</span>
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {allGames.map((game) => (
+                <div key={game.id} className="glass rounded-xl p-4 border border-white/20">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-white font-semibold">Game {game.id.slice(-8)}</span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          game.status === 'active' ? 'bg-green-400/20 text-green-300' :
+                          game.status === 'waiting' ? 'bg-yellow-400/20 text-yellow-300' :
+                          'bg-gray-400/20 text-gray-300'
+                        }`}>
+                          {game.status}
+                        </span>
+                        <span className="text-white/70 text-sm">{game.player_count} players</span>
+                      </div>
+                      <p className="text-white/60 text-sm mt-1">
+                        Created: {new Date(game.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleDownloadGameLeaderboard(game.id)}
+                      className="bg-gradient-to-r from-green-500 to-blue-600 text-white px-3 py-1 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 btn-glow flex items-center space-x-1"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span>CSV</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Game Control Section */}
         <div className="glass-dark rounded-2xl p-8">
           <div className="flex items-center space-x-3 mb-6">
@@ -413,6 +549,7 @@ export default function AdminPage() {
             )}
           </div>
         </div>
+
         {/* Upload Section */}
         <div className="glass-dark rounded-2xl p-8">
           <div className="flex items-center space-x-3 mb-6">

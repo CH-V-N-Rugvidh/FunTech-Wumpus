@@ -416,6 +416,81 @@ app.get('/api/players', async (req, res) => {
   }
 });
 
+// Get all games (admin only)
+app.get('/api/admin/games', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT g.*, COUNT(p.id) as player_count 
+      FROM games g 
+      LEFT JOIN players p ON g.id = p.game_id 
+      GROUP BY g.id 
+      ORDER BY g.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching games:', error);
+    res.status(500).json({ error: 'Failed to fetch games' });
+  }
+});
+
+// Download all game sessions (admin only)
+app.get('/api/admin/game-sessions/download', verifyAdmin, async (req, res) => {
+  try {
+    const sessions = await pool.query(`
+      SELECT gs.*, p.name as player_name, g.created_at as game_created_at
+      FROM game_sessions gs
+      JOIN players p ON gs.player_id = p.id
+      JOIN games g ON gs.game_id = g.id
+      ORDER BY gs.started_at DESC
+    `);
+    
+    const csvData = sessions.rows.map(session => ({
+      game_id: session.game_id,
+      game_created_at: session.game_created_at,
+      session_id: session.id,
+      player_name: session.player_name,
+      started_at: session.started_at,
+      completed_at: session.completed_at,
+      final_score: session.final_score,
+      questions_attempted: session.questions_attempted ? session.questions_attempted.length : 0
+    }));
+    
+    res.json(csvData);
+  } catch (error) {
+    console.error('Error downloading game sessions:', error);
+    res.status(500).json({ error: 'Failed to download game sessions' });
+  }
+});
+
+// Download game leaderboard (admin only)
+app.get('/api/admin/games/:gameId/leaderboard', verifyAdmin, async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    
+    const players = await pool.query(`
+      SELECT * FROM players 
+      WHERE game_id = $1 AND completed = true 
+      ORDER BY steps ASC, completed_at ASC, score DESC
+    `, [gameId]);
+    
+    const leaderboardData = players.rows.map((player, index) => ({
+      rank: index + 1,
+      player_name: player.name,
+      steps: player.steps,
+      questions_answered: player.questions_answered,
+      correct_answers: player.correct_answers,
+      accuracy: player.questions_answered > 0 ? Math.round((player.correct_answers / player.questions_answered) * 100) : 0,
+      score: player.score,
+      completed_at: player.completed_at
+    }));
+    
+    res.json(leaderboardData);
+  } catch (error) {
+    console.error('Error downloading leaderboard:', error);
+    res.status(500).json({ error: 'Failed to download leaderboard' });
+  }
+});
+
 // Get players by gameId
 app.get('/api/players/game/:gameId', async (req, res) => {
   try {

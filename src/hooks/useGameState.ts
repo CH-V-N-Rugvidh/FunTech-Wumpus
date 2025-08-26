@@ -60,11 +60,17 @@ export function useGameState() {
         
         // Load players for this game
         loadPlayers(game.id);
+        
+        // If player is in waiting room and game is active, redirect to game
+        if (isInWaitingRoom) {
+          setIsInWaitingRoom(false);
+          setWaitingPlayerId(null);
+        }
       }
     } catch (error) {
       console.error('Error loading current game:', error);
     }
-  }, [loadPlayers]);
+  }, [loadPlayers, isInWaitingRoom]);
 
   // Load waiting room players
   const loadWaitingRoom = useCallback(async () => {
@@ -73,8 +79,11 @@ export function useGameState() {
       setWaitingRoomPlayers(waitingPlayers);
     } catch (error) {
       console.error('Error loading waiting room:', error);
+      // Set empty array on error to prevent UI issues
+      setWaitingRoomPlayers([]);
     }
   }, []);
+
   // Initialize data on first load
   React.useEffect(() => {
     loadQuestions();
@@ -105,6 +114,20 @@ export function useGameState() {
       setCurrentQuestion(null);
     }
   }, [gameTimeLeft, currentGame]);
+
+  // Check if player should be redirected from waiting room to game
+  React.useEffect(() => {
+    if (isInWaitingRoom && currentGame?.status === 'active') {
+      // Game has started, redirect player to game
+      const playerName = localStorage.getItem('waiting-player-name');
+      if (playerName) {
+        setIsInWaitingRoom(false);
+        setWaitingPlayerId(null);
+        localStorage.removeItem('waiting-player-name');
+        createPlayer(playerName);
+      }
+    }
+  }, [currentGame, isInWaitingRoom]);
 
   // Get random question
   const getRandomQuestion = useCallback((excludeIds: number[] = []): Question | null => {
@@ -212,6 +235,7 @@ export function useGameState() {
       const result = await gameApi.joinWaitingRoom(name);
       setWaitingPlayerId(result.playerId);
       setIsInWaitingRoom(true);
+      localStorage.setItem('waiting-player-name', name);
       loadWaitingRoom();
     } catch (error) {
       console.error('Error joining waiting room:', error);
@@ -224,6 +248,7 @@ export function useGameState() {
         await gameApi.leaveWaitingRoom(waitingPlayerId);
         setWaitingPlayerId(null);
         setIsInWaitingRoom(false);
+        localStorage.removeItem('waiting-player-name');
         loadWaitingRoom();
       } catch (error) {
         console.error('Error leaving waiting room:', error);
@@ -346,6 +371,7 @@ export function useGameState() {
     setWaitingPlayerId(null);
     setGameSession(null);
     setQuestionAttempts([]);
+    localStorage.removeItem('waiting-player-name');
   }, []);
 
   const getLeaderboard = useCallback(() => {
@@ -354,8 +380,12 @@ export function useGameState() {
       .sort((a, b) => {
         // Primary sort by steps (fewer is better)
         if (a.steps !== b.steps) return a.steps - b.steps;
-        // Secondary sort by score (higher is better)
-        return b.score - a.score;
+        // Secondary sort by completion time (earlier is better)
+        if (a.completedAt && b.completedAt) {
+          return new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime();
+        }
+        // Tertiary sort by score (higher is better)
+        return (b.score || 0) - (a.score || 0);
       })
       .slice(0, 10);
   }, [players]);

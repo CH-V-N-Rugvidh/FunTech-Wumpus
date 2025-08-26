@@ -63,6 +63,33 @@ export const adminApi = {
       }
     });
     return response.json();
+  },
+
+  getAllGames: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/admin/games`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.json();
+  },
+
+  downloadAllGameSessions: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/admin/game-sessions/download`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.json();
+  },
+
+  downloadGameLeaderboard: async (gameId: string, token: string) => {
+    const response = await fetch(`${API_BASE_URL}/admin/games/${gameId}/leaderboard`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.json();
   }
 };
 
@@ -93,7 +120,7 @@ export const gameApi = {
   },
 
   getPlayersByGame: async (gameId: string) => {
-    const response = await fetch(`${API_BASE_URL}/players/${gameId}`);
+    const response = await fetch(`${API_BASE_URL}/players/game/${gameId}`);
     return response.json();
   },
 

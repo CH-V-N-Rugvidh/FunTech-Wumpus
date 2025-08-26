@@ -6,7 +6,6 @@ import PlayerStats from '../components/PlayerStats';
 import GameComplete from '../components/GameComplete';
 import Leaderboard from '../components/Leaderboard';
 import { Bot, Clock, Play, ArrowLeft, Users, Sparkles } from 'lucide-react';
-import { Question } from '../types';
 
 export default function GamePage() {
   const {
@@ -88,6 +87,7 @@ export default function GamePage() {
       </div>
     );
   }
+
   if (!gameStarted) {
     return (
       <div className="min-h-screen p-4">

@@ -86,7 +86,7 @@ export default function Leaderboard({ players, isCompact = false }: LeaderboardP
               </div>
               <div className="text-xs text-white/70 flex items-center space-x-1 justify-end">
                 <Zap className="w-3 h-3 text-yellow-400" />
-                {player.steps} steps
+                <span>{player.steps} steps</span>
               </div>
             </div>
           </div>
