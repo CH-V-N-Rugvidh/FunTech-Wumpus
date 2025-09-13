@@ -25,6 +25,21 @@ const pool = new Pool({
   password: process.env.PGPASSWORD || process.env.DB_PASSWORD || (process.env.NODE_ENV === 'production' ? null : 'password'),
 });
 
+// Test database connection
+async function testConnection() {
+  try {
+    const client = await pool.connect();
+    await client.query('SELECT NOW()');
+    client.release();
+    console.log('Database connection successful');
+  } catch (error) {
+    console.error('Database connection failed:', error.message);
+    if (process.env.NODE_ENV === 'production') {
+      throw error;
+    }
+  }
+}
+
 // Check if column exists
 async function columnExists(tableName, columnName) {
   try {
@@ -40,101 +55,125 @@ async function columnExists(tableName, columnName) {
   }
 }
 
+// Check if table exists
+async function tableExists(tableName) {
+  try {
+    const result = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_name = $1 AND table_schema = 'public'
+    `, [tableName]);
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Error checking table existence:', error);
+    return false;
+  }
+}
+
 // Add missing columns to existing tables
 async function migrateDatabase() {
   try {
     console.log('Running database migrations...');
     
-    // Check and add missing columns to players table
-    if (!(await columnExists('players', 'game_id'))) {
-      console.log('Adding game_id column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN game_id VARCHAR(100) NOT NULL DEFAULT \'\'');
-    }
-    
-    if (!(await columnExists('players', 'name'))) {
-      console.log('Adding name column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN name VARCHAR(100) NOT NULL DEFAULT \'\'');
-    }
-    
-    if (!(await columnExists('players', 'current_position'))) {
-      console.log('Adding current_position column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN current_position JSONB NOT NULL DEFAULT \'{}\'');
-    }
-    
-    if (!(await columnExists('players', 'previous_position'))) {
-      console.log('Adding previous_position column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN previous_position JSONB');
-    }
-    
-    if (!(await columnExists('players', 'path_taken'))) {
-      console.log('Adding path_taken column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN path_taken JSONB DEFAULT \'[]\'');
-    }
-    
-    if (!(await columnExists('players', 'visited_positions'))) {
-      console.log('Adding visited_positions column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN visited_positions JSONB DEFAULT \'[]\'');
-    }
-    
-    if (!(await columnExists('players', 'steps'))) {
-      console.log('Adding steps column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN steps INTEGER DEFAULT 0');
-    }
-    
-    if (!(await columnExists('players', 'questions_answered'))) {
-      console.log('Adding questions_answered column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN questions_answered INTEGER DEFAULT 0');
-    }
-    
-    if (!(await columnExists('players', 'correct_answers'))) {
-      console.log('Adding correct_answers column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN correct_answers INTEGER DEFAULT 0');
-    }
-    
-    if (!(await columnExists('players', 'completed'))) {
-      console.log('Adding completed column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN completed BOOLEAN DEFAULT FALSE');
-    }
-    
-    if (!(await columnExists('players', 'completed_at'))) {
-      console.log('Adding completed_at column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN completed_at TIMESTAMP');
-    }
-    
-    if (!(await columnExists('players', 'asked_questions'))) {
-      console.log('Adding asked_questions column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN asked_questions JSONB DEFAULT \'[]\'');
-    }
-    
-    if (!(await columnExists('players', 'score'))) {
-      console.log('Adding score column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN score INTEGER DEFAULT 0');
-    }
-    
-    if (!(await columnExists('players', 'game_session_id'))) {
-      console.log('Adding game_session_id column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN game_session_id VARCHAR(100)');
-    }
-    
-    if (!(await columnExists('players', 'created_at'))) {
-      console.log('Adding created_at column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
-    }
-    
-    if (!(await columnExists('players', 'updated_at'))) {
-      console.log('Adding updated_at column to players table...');
-      await pool.query('ALTER TABLE players ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    // Check if players table exists before migration
+    if (await tableExists('players')) {
+      // Check and add missing columns to players table
+      if (!(await columnExists('players', 'game_id'))) {
+        console.log('Adding game_id column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN game_id VARCHAR(100) NOT NULL DEFAULT \'\'');
+      }
+      
+      if (!(await columnExists('players', 'name'))) {
+        console.log('Adding name column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN name VARCHAR(100) NOT NULL DEFAULT \'\'');
+      }
+      
+      if (!(await columnExists('players', 'current_position'))) {
+        console.log('Adding current_position column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN current_position JSONB NOT NULL DEFAULT \'{}\'');
+      }
+      
+      if (!(await columnExists('players', 'previous_position'))) {
+        console.log('Adding previous_position column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN previous_position JSONB');
+      }
+      
+      if (!(await columnExists('players', 'path_taken'))) {
+        console.log('Adding path_taken column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN path_taken JSONB DEFAULT \'[]\'');
+      }
+      
+      if (!(await columnExists('players', 'visited_positions'))) {
+        console.log('Adding visited_positions column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN visited_positions JSONB DEFAULT \'[]\'');
+      }
+      
+      if (!(await columnExists('players', 'steps'))) {
+        console.log('Adding steps column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN steps INTEGER DEFAULT 0');
+      }
+      
+      if (!(await columnExists('players', 'questions_answered'))) {
+        console.log('Adding questions_answered column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN questions_answered INTEGER DEFAULT 0');
+      }
+      
+      if (!(await columnExists('players', 'correct_answers'))) {
+        console.log('Adding correct_answers column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN correct_answers INTEGER DEFAULT 0');
+      }
+      
+      if (!(await columnExists('players', 'completed'))) {
+        console.log('Adding completed column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN completed BOOLEAN DEFAULT FALSE');
+      }
+      
+      if (!(await columnExists('players', 'completed_at'))) {
+        console.log('Adding completed_at column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN completed_at TIMESTAMP');
+      }
+      
+      if (!(await columnExists('players', 'asked_questions'))) {
+        console.log('Adding asked_questions column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN asked_questions JSONB DEFAULT \'[]\'');
+      }
+      
+      if (!(await columnExists('players', 'score'))) {
+        console.log('Adding score column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN score INTEGER DEFAULT 0');
+      }
+      
+      if (!(await columnExists('players', 'game_session_id'))) {
+        console.log('Adding game_session_id column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN game_session_id VARCHAR(100)');
+      }
+      
+      if (!(await columnExists('players', 'created_at'))) {
+        console.log('Adding created_at column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+      }
+      
+      if (!(await columnExists('players', 'updated_at'))) {
+        console.log('Adding updated_at column to players table...');
+        await pool.query('ALTER TABLE players ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+      }
     }
     
     console.log('Database migrations completed successfully');
   } catch (error) {
     console.error('Error during database migration:', error);
+    throw error;
   }
 }
 
 // Initialize database tables
 async function initializeDatabase() {
   try {
+    console.log('Initializing database...');
+    
+    // Test connection first
+    await testConnection();
+    
     // Create admins table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admins (
@@ -158,6 +197,19 @@ async function initializeDatabase() {
         explanation TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create games table for managing game instances
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS games (
+        id VARCHAR(100) PRIMARY KEY,
+        status VARCHAR(20) DEFAULT 'waiting',
+        started_at TIMESTAMP,
+        ended_at TIMESTAMP,
+        duration_minutes INTEGER DEFAULT 15,
+        created_by INTEGER REFERENCES admins(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -199,19 +251,6 @@ async function initializeDatabase() {
       )
     `);
 
-    // Create games table for managing game instances
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS games (
-        id VARCHAR(100) PRIMARY KEY,
-        status VARCHAR(20) DEFAULT 'waiting',
-        started_at TIMESTAMP,
-        ended_at TIMESTAMP,
-        duration_minutes INTEGER DEFAULT 15,
-        created_by INTEGER REFERENCES admins(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
     // Create waiting_room table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS waiting_room (
@@ -226,8 +265,8 @@ async function initializeDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS question_attempts (
         id SERIAL PRIMARY KEY,
-        session_id VARCHAR(100) REFERENCES game_sessions(id),
-        question_id INTEGER REFERENCES questions(id),
+        session_id VARCHAR(100) REFERENCES game_sessions(id) ON DELETE CASCADE,
+        question_id INTEGER REFERENCES questions(id) ON DELETE CASCADE,
         selected_answer INTEGER NOT NULL,
         is_correct BOOLEAN NOT NULL,
         attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -249,11 +288,14 @@ async function initializeDatabase() {
 
     console.log('Database tables initialized successfully');
     
-    // Run migrations to add any missing columns
+    // Run migrations to add any missing columns to existing tables
     await migrateDatabase();
+    
+    console.log('Database initialization completed successfully');
     
   } catch (error) {
     console.error('Error initializing database:', error);
+    throw error;
   }
 }
 

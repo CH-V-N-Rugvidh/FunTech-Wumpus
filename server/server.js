@@ -42,17 +42,44 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Initialize database on startup
-initializeDatabase();
-
-// Secure admin bootstrap - use environment variables for credentials
-const ADMIN_CREDENTIALS = [
+// Hardcoded admin credentials for initial setup
+const HARDCODED_ADMINS = [
   { 
-    username: process.env.ADMIN_USERNAME || 'admin1', 
-    email: process.env.ADMIN_EMAIL || 'admin@funtech.com', 
-    password: process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? null : 'DevPassword123!') 
+    username: 'admin1', 
+    email: 'admin1@funtech.com', 
+    password: 'AdminPass123!' 
+  },
+  { 
+    username: 'admin2', 
+    email: 'admin2@funtech.com', 
+    password: 'AdminPass456!' 
+  },
+  { 
+    username: 'admin3', 
+    email: 'admin3@funtech.com', 
+    password: 'AdminPass789!' 
+  },
+  { 
+    username: 'admin4', 
+    email: 'admin4@funtech.com', 
+    password: 'AdminPass012!' 
   }
 ];
+
+// Get admin credentials based on environment
+function getAdminCredentials() {
+  if (process.env.NODE_ENV === 'production') {
+    // In production, use environment variables if provided, otherwise use hardcoded
+    return [{
+      username: process.env.ADMIN_USERNAME || 'admin1',
+      email: process.env.ADMIN_EMAIL || 'admin1@funtech.com',
+      password: process.env.ADMIN_PASSWORD || 'AdminPass123!'
+    }];
+  } else {
+    // In development, use hardcoded credentials
+    return HARDCODED_ADMINS;
+  }
+}
 
 // Middleware to verify admin token (moved to top)
 const verifyAdmin = async (req, res, next) => {
@@ -98,36 +125,46 @@ const verifyStudent = async (req, res, next) => {
   }
 };
 
-// Create admin accounts on startup  
+// Create admin accounts - called after database initialization
 async function createAdminAccounts() {
   try {
-    // In production, enforce admin credentials
-    if (process.env.NODE_ENV === 'production') {
-      if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD) {
-        throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD must be set in production');
+    console.log('Creating/verifying admin accounts...');
+    
+    // Check if any admin accounts exist
+    const existingAdmins = await pool.query('SELECT COUNT(*) as count FROM admins');
+    const adminCount = parseInt(existingAdmins.rows[0].count);
+    
+    if (adminCount === 0) {
+      console.log('No admin accounts found. Creating hardcoded admin accounts...');
+      const adminCredentials = getAdminCredentials();
+      
+      for (const admin of adminCredentials) {
+        const hashedPassword = await bcrypt.hash(admin.password, 10);
+        await pool.query(
+          'INSERT INTO admins (username, email, password_hash) VALUES ($1, $2, $3)',
+          [admin.username, admin.email, hashedPassword]
+        );
+        console.log(`Created admin account: ${admin.username}`);
       }
       
-      // Remove any legacy admin accounts from development
-      await pool.query('DELETE FROM admins WHERE username IN ($1, $2, $3, $4)', 
-        ['admin1', 'admin2', 'admin3', 'admin4']);
-      console.log('Legacy admin accounts removed');
-    }
-    
-    for (const admin of ADMIN_CREDENTIALS) {
-      if (!admin.password) {
-        if (process.env.NODE_ENV === 'production') {
-          throw new Error('Admin password is required in production');
-        }
-        console.error('Admin password not provided for:', admin.username);
-        continue;
+      console.log('Admin accounts created successfully');
+      console.log('Default admin credentials:');
+      adminCredentials.forEach(admin => {
+        console.log(`Username: ${admin.username}, Password: ${admin.password}`);
+      });
+    } else {
+      console.log(`Found ${adminCount} existing admin account(s)`);
+      
+      // In production, still update the main admin account if env vars are provided
+      if (process.env.NODE_ENV === 'production' && process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD) {
+        const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
+        await pool.query(
+          'INSERT INTO admins (username, email, password_hash) VALUES ($1, $2, $3) ON CONFLICT (username) DO UPDATE SET password_hash = $3, email = $2',
+          [process.env.ADMIN_USERNAME, process.env.ADMIN_EMAIL || 'admin@funtech.com', hashedPassword]
+        );
+        console.log('Production admin account updated from environment variables');
       }
-      const hashedPassword = await bcrypt.hash(admin.password, 10);
-      await pool.query(
-        'INSERT INTO admins (username, email, password_hash) VALUES ($1, $2, $3) ON CONFLICT (username) DO UPDATE SET password_hash = $3, email = $2',
-        [admin.username, admin.email, hashedPassword]
-      );
     }
-    console.log('Admin accounts created/verified');
   } catch (error) {
     console.error('Error creating admin accounts:', error);
     if (process.env.NODE_ENV === 'production') {
@@ -136,7 +173,21 @@ async function createAdminAccounts() {
   }
 }
 
-createAdminAccounts();
+// Initialize database and create admin accounts
+async function initializeApp() {
+  try {
+    await initializeDatabase();
+    await createAdminAccounts();
+  } catch (error) {
+    console.error('Error initializing application:', error);
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1); // Exit in production on critical errors
+    }
+  }
+}
+
+// Initialize the app
+initializeApp();
 
 // Student authentication endpoints
 
@@ -424,26 +475,47 @@ app.post('/api/admin/login', async (req, res) => {
   }
 });
 
-// Upload questions (admin only)
+// Upload questions (admin only) - Fixed to handle foreign key constraints
 app.post('/api/admin/questions', verifyAdmin, async (req, res) => {
+  const client = await pool.connect();
   try {
     const { questions } = req.body;
     
-    // Clear existing questions
-    await pool.query('DELETE FROM questions');
+    // Start transaction
+    await client.query('BEGIN');
+    
+    // First, delete all question attempts (to avoid foreign key constraint)
+    await client.query('DELETE FROM question_attempts');
+    
+    // Then delete all questions
+    await client.query('DELETE FROM questions');
+    
+    // Reset the sequence for question IDs to start from 1
+    await client.query('ALTER SEQUENCE questions_id_seq RESTART WITH 1');
     
     // Insert new questions
     for (const question of questions) {
-      await pool.query(
+      await client.query(
         'INSERT INTO questions (question, options, correct_answer, category, difficulty, explanation) VALUES ($1, $2, $3, $4, $5, $6)',
         [question.question, JSON.stringify(question.options), question.correctAnswer, question.category, question.difficulty, question.explanation]
       );
     }
     
-    res.json({ message: 'Questions uploaded successfully', count: questions.length });
+    // Commit transaction
+    await client.query('COMMIT');
+    
+    res.json({ 
+      message: 'Questions uploaded successfully', 
+      count: questions.length,
+      warning: 'All previous question attempts have been cleared due to question update.'
+    });
   } catch (error) {
+    // Rollback transaction on error
+    await client.query('ROLLBACK');
     console.error('Error uploading questions:', error);
     res.status(500).json({ error: 'Failed to upload questions' });
+  } finally {
+    client.release();
   }
 });
 
