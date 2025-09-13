@@ -1,12 +1,28 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// Enforce required database credentials in production
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.PGHOST && !process.env.DB_HOST) {
+    throw new Error('Database host must be provided in production (PGHOST or DB_HOST)');
+  }
+  if (!process.env.PGUSER && !process.env.DB_USER) {
+    throw new Error('Database user must be provided in production (PGUSER or DB_USER)');
+  }
+  if (!process.env.PGPASSWORD && !process.env.DB_PASSWORD) {
+    throw new Error('Database password must be provided in production (PGPASSWORD or DB_PASSWORD)');
+  }
+  if (!process.env.PGDATABASE && !process.env.DB_NAME) {
+    throw new Error('Database name must be provided in production (PGDATABASE or DB_NAME)');
+  }
+}
+
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+  host: process.env.PGHOST || process.env.DB_HOST || (process.env.NODE_ENV === 'production' ? null : 'helium'),
+  port: process.env.PGPORT || process.env.DB_PORT || 5432,
+  database: process.env.PGDATABASE || process.env.DB_NAME || (process.env.NODE_ENV === 'production' ? null : 'heliumdb'),
+  user: process.env.PGUSER || process.env.DB_USER || (process.env.NODE_ENV === 'production' ? null : 'postgres'),
+  password: process.env.PGPASSWORD || process.env.DB_PASSWORD || (process.env.NODE_ENV === 'production' ? null : 'password'),
 });
 
 // Check if column exists

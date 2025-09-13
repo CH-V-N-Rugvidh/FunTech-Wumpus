@@ -72,47 +72,101 @@ export function getValidMove(
   ];
   
   // Filter valid moves within grid bounds
-  let validMoves = possibleMoves.filter(
+  const validMoves = possibleMoves.filter(
     move => move.x >= 0 && move.x < gridSize && move.y >= 0 && move.y < gridSize
   );
-  
-  // Remove visited positions
-  validMoves = validMoves.filter(
-    move => !visitedPositions.some(pos => pos.x === move.x && pos.y === move.y)
-  );
-  
-  if (isCorrectAnswer && validMoves.length > 0) {
-    // For correct answers, prefer moves that get closer to goal
-    const movesWithDistance = validMoves.map(move => ({
-      position: move,
-      distance: calculateDistance(move, goal)
-    }));
-    
-    movesWithDistance.sort((a, b) => a.distance - b.distance);
-    
-    // 80% chance to take the best move, 20% chance for variety
-    if (Math.random() < 0.8) {
-      return movesWithDistance[0].position;
-    } else {
-      const randomIndex = Math.floor(Math.random() * Math.min(3, movesWithDistance.length));
-      return movesWithDistance[randomIndex].position;
-    }
-  }
-  
-  // For wrong answers or when no unvisited moves available, take any valid move
-  if (validMoves.length === 0) {
-    // If all adjacent positions are visited, allow revisiting (emergency case)
-    validMoves = possibleMoves.filter(
-      move => move.x >= 0 && move.x < gridSize && move.y >= 0 && move.y < gridSize
-    );
-  }
   
   if (validMoves.length === 0) {
     return current; // Stay in place if no moves possible
   }
   
-  const randomIndex = Math.floor(Math.random() * validMoves.length);
-  return validMoves[randomIndex];
+  const currentDistance = calculateDistance(current, goal);
+  
+  // INVERTED LOGIC: User reports behavior is completely inverted
+  // So: WRONG answers (!isCorrectAnswer) should move AWAY from goal
+  //     CORRECT answers (isCorrectAnswer) should move TOWARD goal
+  if (!isCorrectAnswer) {
+    // For wrong answers, ALWAYS move away from goal - distance direction is first priority
+    // Find all moves that increase distance from goal
+    let movesAwayFromGoal = validMoves.filter(move => 
+      calculateDistance(move, goal) > currentDistance
+    );
+    
+    if (movesAwayFromGoal.length > 0) {
+      // We have moves that get farther from goal - prefer unvisited ones among these
+      const unvisitedAwayFromGoal = movesAwayFromGoal.filter(
+        move => !visitedPositions.some(pos => pos.x === move.x && pos.y === move.y)
+      );
+      
+      // Use unvisited moves away from goal if available, otherwise any move away from goal
+      const finalCandidates = unvisitedAwayFromGoal.length > 0 ? unvisitedAwayFromGoal : movesAwayFromGoal;
+      
+      // Pick the farthest from goal among the candidates
+      const movesWithDistance = finalCandidates.map(move => ({
+        position: move,
+        distance: calculateDistance(move, goal)
+      }));
+      movesWithDistance.sort((a, b) => b.distance - a.distance);
+      return movesWithDistance[0].position;
+    }
+    
+    // No moves increase distance - pick the one that at least doesn't decrease it
+    let movesNotCloser = validMoves.filter(move => 
+      calculateDistance(move, goal) >= currentDistance
+    );
+    
+    if (movesNotCloser.length > 0) {
+      // Among moves that don't get closer, pick the farthest
+      const movesWithDistance = movesNotCloser.map(move => ({
+        position: move,
+        distance: calculateDistance(move, goal)
+      }));
+      movesWithDistance.sort((a, b) => b.distance - a.distance);
+      return movesWithDistance[0].position;
+    }
+    
+    // All moves get closer (edge case) - pick the one that gets closest (least bad)
+    const movesWithDistance = validMoves.map(move => ({
+      position: move,
+      distance: calculateDistance(move, goal)
+    }));
+    movesWithDistance.sort((a, b) => a.distance - b.distance);
+    return movesWithDistance[0].position;
+    
+  } else {
+    // For correct answers, ALWAYS move toward goal - distance direction is first priority
+    // Find all moves that reduce distance to goal
+    let movesTowardGoal = validMoves.filter(move => 
+      calculateDistance(move, goal) < currentDistance
+    );
+    
+    if (movesTowardGoal.length > 0) {
+      // We have moves that get closer to goal - prefer unvisited ones among these
+      const unvisitedTowardGoal = movesTowardGoal.filter(
+        move => !visitedPositions.some(pos => pos.x === move.x && pos.y === move.y)
+      );
+      
+      // Use unvisited moves toward goal if available, otherwise any move toward goal
+      const finalCandidates = unvisitedTowardGoal.length > 0 ? unvisitedTowardGoal : movesTowardGoal;
+      
+      // Pick the closest to goal among the candidates
+      const movesWithDistance = finalCandidates.map(move => ({
+        position: move,
+        distance: calculateDistance(move, goal)
+      }));
+      movesWithDistance.sort((a, b) => a.distance - b.distance);
+      return movesWithDistance[0].position;
+    }
+    
+    // No moves reduce distance (shouldn't happen unless at goal)
+    // Fallback: pick the move that gets closest to goal among all valid moves
+    const movesWithDistance = validMoves.map(move => ({
+      position: move,
+      distance: calculateDistance(move, goal)
+    }));
+    movesWithDistance.sort((a, b) => a.distance - b.distance);
+    return movesWithDistance[0].position;
+  }
 }
 export function getNextOptimalMove(current: Position, goal: Position): Position {
   const path = calculateOptimalPath(current, goal);

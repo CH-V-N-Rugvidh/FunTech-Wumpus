@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Player, Question, Position, GameSession, QuestionAttempt } from '../types';
 import { gameApi } from '../services/api';
-import { getNextOptimalMove, getValidMove, calculateDistance } from '../utils/pathfinding';
+import { getValidMove, calculateDistance } from '../utils/pathfinding';
 import React from 'react';
 
 const GRID_SIZE = 10;
@@ -21,45 +21,48 @@ export function useGameState(studentToken?: string) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [gameSession, setGameSession] = useState<GameSession | null>(null);
   const [questionAttempts, setQuestionAttempts] = useState<QuestionAttempt[]>([]);
-  const [globalAskedQuestions, setGlobalAskedQuestions] = useState<number[]>([]);
+  const [playerAskedQuestions, setPlayerAskedQuestions] = useState<{ [playerId: string]: number[] }>({});
 
   // Load questions from database
   const loadQuestions = useCallback(async () => {
     try {
       const dbQuestions = await gameApi.getQuestions();
+      if (dbQuestions.length === 0) {
+        console.error('No questions found in database. Admin must upload questions first.');
+        setQuestions([]);
+        return;
+      }
       setQuestions(dbQuestions);
     } catch (error) {
       console.error('Error loading questions:', error);
-      // Fallback to default questions if database fails
-      const { techQuestions } = await import('../data/questions');
-      setQuestions(techQuestions);
+      setQuestions([]);
     }
   }, []);
 
-  // Load global asked questions from localStorage
+  // Load player asked questions from localStorage
   React.useEffect(() => {
-    const savedAskedQuestions = localStorage.getItem('global-asked-questions');
-    if (savedAskedQuestions) {
+    const savedPlayerQuestions = localStorage.getItem('player-asked-questions');
+    if (savedPlayerQuestions) {
       try {
-        setGlobalAskedQuestions(JSON.parse(savedAskedQuestions));
+        setPlayerAskedQuestions(JSON.parse(savedPlayerQuestions));
       } catch (error) {
-        console.error('Error loading global asked questions:', error);
-        setGlobalAskedQuestions([]);
+        console.error('Error loading player asked questions:', error);
+        setPlayerAskedQuestions({});
       }
     }
   }, []);
 
-  // Save global asked questions to localStorage
-  const saveGlobalAskedQuestions = React.useCallback((questionIds: number[]) => {
-    setGlobalAskedQuestions(questionIds);
-    localStorage.setItem('global-asked-questions', JSON.stringify(questionIds));
-  }, []);
+  // Save player asked questions to localStorage
+  const savePlayerAskedQuestions = React.useCallback((playerId: string, questionIds: number[]) => {
+    const updatedPlayerQuestions = { ...playerAskedQuestions, [playerId]: questionIds };
+    setPlayerAskedQuestions(updatedPlayerQuestions);
+    localStorage.setItem('player-asked-questions', JSON.stringify(updatedPlayerQuestions));
+  }, [playerAskedQuestions]);
 
-  // Reset global asked questions when all questions have been used
-  const resetGlobalAskedQuestions = React.useCallback(() => {
-    setGlobalAskedQuestions([]);
-    localStorage.removeItem('global-asked-questions');
-  }, []);
+  // Get asked questions for a specific player
+  const getPlayerAskedQuestions = React.useCallback((playerId: string): number[] => {
+    return playerAskedQuestions[playerId] || [];
+  }, [playerAskedQuestions]);
 
   // Load players from database
   const loadPlayers = useCallback(async (gameId?: string) => {
@@ -172,27 +175,34 @@ export function useGameState(studentToken?: string) {
     return question;
   }, []);
 
-  // Get random question
-  const getRandomQuestion = useCallback((sessionExcludeIds: number[] = []): Question | null => {
-    // Combine session-specific excludes with global asked questions
-    const allExcludeIds = [...new Set([...sessionExcludeIds, ...globalAskedQuestions])];
+  // Get random question for a specific player
+  const getRandomQuestion = useCallback((playerId: string, sessionExcludeIds: number[] = []): Question | null => {
+    if (questions.length === 0) {
+      return null;
+    }
+
+    // Get questions already asked by this specific player
+    const playerAsked = getPlayerAskedQuestions(playerId);
+    
+    // Combine session-specific excludes with player's asked questions
+    const allExcludeIds = [...new Set([...sessionExcludeIds, ...playerAsked])];
     const availableQuestions = questions.filter(q => !allExcludeIds.includes(q.id));
     
-    // If no questions available, reset global pool and try again
+    // If no questions available for this player, reset their asked questions and try again
     if (availableQuestions.length === 0 && questions.length > 0) {
-      resetGlobalAskedQuestions();
+      // Reset only this player's asked questions
+      savePlayerAskedQuestions(playerId, []);
       // Only exclude current session questions after reset
       const resetAvailableQuestions = questions.filter(q => !sessionExcludeIds.includes(q.id));
       if (resetAvailableQuestions.length === 0) {
         // If even session questions are exhausted, allow any question
-        return questions[Math.floor(Math.random() * questions.length)];
+        return shuffleQuestionOptions({ ...questions[Math.floor(Math.random() * questions.length)] });
       }
       const randomIndex = Math.floor(Math.random() * resetAvailableQuestions.length);
       const selectedQuestion = { ...resetAvailableQuestions[randomIndex] };
       
-      // Add to global asked questions
-      const newGlobalAsked = [selectedQuestion.id];
-      saveGlobalAskedQuestions(newGlobalAsked);
+      // Add to this player's asked questions
+      savePlayerAskedQuestions(playerId, [selectedQuestion.id]);
       
       return shuffleQuestionOptions(selectedQuestion);
     }
@@ -204,12 +214,12 @@ export function useGameState(studentToken?: string) {
     const randomIndex = Math.floor(Math.random() * availableQuestions.length);
     const question = { ...availableQuestions[randomIndex] };
     
-    // Add to global asked questions
-    const newGlobalAsked = [...globalAskedQuestions, question.id];
-    saveGlobalAskedQuestions(newGlobalAsked);
+    // Add to this player's asked questions
+    const newPlayerAsked = [...playerAsked, question.id];
+    savePlayerAskedQuestions(playerId, newPlayerAsked);
     
     return shuffleQuestionOptions(question);
-  }, [questions, globalAskedQuestions, resetGlobalAskedQuestions, saveGlobalAskedQuestions, shuffleQuestionOptions]);
+  }, [questions, getPlayerAskedQuestions, savePlayerAskedQuestions, shuffleQuestionOptions]);
 
   const createPlayer = useCallback((name: string) => {
     // Check if there's an active game
@@ -246,8 +256,7 @@ export function useGameState(studentToken?: string) {
       correctAnswers: 0,
       completed: false,
       askedQuestions: [],
-      score: 0,
-      gameSessionId: sessionId
+      score: 0
     };
 
     const updatedPlayers = [...players, newPlayer];
@@ -278,7 +287,7 @@ export function useGameState(studentToken?: string) {
     }
     
     // Generate first question
-    const firstQuestion = getRandomQuestion();
+    const firstQuestion = getRandomQuestion(playerId);
     if (firstQuestion) {
       setCurrentQuestion(firstQuestion);
       
@@ -334,6 +343,7 @@ export function useGameState(studentToken?: string) {
     const distanceBonus = Math.max(0, 10 - distanceToGoal);
     const questionScore = (baseScore + distanceBonus) * difficultyMultiplier;
     
+    
     // Create question attempt record
     const attempt: QuestionAttempt = {
       questionId: currentQuestion.id,
@@ -355,6 +365,7 @@ export function useGameState(studentToken?: string) {
       GRID_SIZE,
       isCorrect
     );
+    
 
     const newPathTaken = [...currentPlayer.pathTaken, newPosition];
     const newVisitedPositions = currentPlayer.visitedPositions.some(
@@ -413,7 +424,7 @@ export function useGameState(studentToken?: string) {
     }
 
     // Generate next question immediately
-    const nextQuestion = getRandomQuestion(updatedPlayer.askedQuestions);
+    const nextQuestion = getRandomQuestion(updatedPlayer.id, updatedPlayer.askedQuestions);
     
     if (nextQuestion) {
       setCurrentQuestion(nextQuestion);

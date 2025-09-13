@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:3001/api';
+// Use relative URL for API calls to work with Replit proxy
+const API_BASE_URL = '/api';
 
 // Admin API
 export const adminApi = {

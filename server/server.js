@@ -7,19 +7,51 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+// Enforce JWT_SECRET in production
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? 
+  (() => { throw new Error('JWT_SECRET must be set in production') })() : 
+  'fallback-dev-secret-change-in-production');
 
-app.use(cors());
+// Configure CORS based on environment
+if (process.env.NODE_ENV === 'production') {
+  // In production, disable CORS since we serve SPA and API from the same origin
+  // If you need to allow specific origins, set APP_ORIGIN environment variable
+  if (process.env.APP_ORIGIN) {
+    app.use(cors({
+      origin: process.env.APP_ORIGIN,
+      credentials: false
+    }));
+  }
+  // Otherwise, no CORS middleware (same-origin only)
+} else {
+  app.use(cors()); // Allow all origins in development
+}
 app.use(express.json());
+
+// Serve static files from the built frontend in production
+if (process.env.NODE_ENV === 'production') {
+  const path = require('path');
+  app.use(express.static(path.join(__dirname, '..', 'dist')));
+  
+  // Handle client-side routing for SPA
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next(); // Skip static file handling for API routes
+    }
+    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+  });
+}
 
 // Initialize database on startup
 initializeDatabase();
 
-// Admin credentials (you can change these)
+// Secure admin bootstrap - use environment variables for credentials
 const ADMIN_CREDENTIALS = [
-  { username: 'admin1', email: 'admin1@funtech.com', password: 'FunTech2024!Admin1' },
-  { username: 'admin2', email: 'admin2@funtech.com', password: 'FunTech2024!Admin2' },
-  { username: 'admin3', email: 'admin3@funtech.com', password: 'FunTech2024!Admin3' },
-  { username: 'admin4', email: 'admin4@funtech.com', password: 'FunTech2024!Admin4' }
+  { 
+    username: process.env.ADMIN_USERNAME || 'admin1', 
+    email: process.env.ADMIN_EMAIL || 'admin@funtech.com', 
+    password: process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? null : 'DevPassword123!') 
+  }
 ];
 
 // Middleware to verify admin token (moved to top)
@@ -30,7 +62,7 @@ const verifyAdmin = async (req, res, next) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     const admin = await pool.query('SELECT * FROM admins WHERE id = $1', [decoded.adminId]);
     
     if (admin.rows.length === 0) {
@@ -52,7 +84,7 @@ const verifyStudent = async (req, res, next) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     const student = await pool.query('SELECT * FROM students WHERE id = $1', [decoded.studentId]);
     
     if (student.rows.length === 0) {
@@ -66,19 +98,41 @@ const verifyStudent = async (req, res, next) => {
   }
 };
 
-// Create admin accounts on startup
+// Create admin accounts on startup  
 async function createAdminAccounts() {
   try {
+    // In production, enforce admin credentials
+    if (process.env.NODE_ENV === 'production') {
+      if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD) {
+        throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD must be set in production');
+      }
+      
+      // Remove any legacy admin accounts from development
+      await pool.query('DELETE FROM admins WHERE username IN ($1, $2, $3, $4)', 
+        ['admin1', 'admin2', 'admin3', 'admin4']);
+      console.log('Legacy admin accounts removed');
+    }
+    
     for (const admin of ADMIN_CREDENTIALS) {
+      if (!admin.password) {
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error('Admin password is required in production');
+        }
+        console.error('Admin password not provided for:', admin.username);
+        continue;
+      }
       const hashedPassword = await bcrypt.hash(admin.password, 10);
       await pool.query(
-        'INSERT INTO admins (username, email, password_hash) VALUES ($1, $2, $3) ON CONFLICT (username) DO NOTHING',
+        'INSERT INTO admins (username, email, password_hash) VALUES ($1, $2, $3) ON CONFLICT (username) DO UPDATE SET password_hash = $3, email = $2',
         [admin.username, admin.email, hashedPassword]
       );
     }
     console.log('Admin accounts created/verified');
   } catch (error) {
     console.error('Error creating admin accounts:', error);
+    if (process.env.NODE_ENV === 'production') {
+      throw error; // Fail fast in production
+    }
   }
 }
 
@@ -101,7 +155,7 @@ app.post('/api/student/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ studentId: student.rows[0].id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ studentId: student.rows[0].id }, JWT_SECRET, { expiresIn: '24h' });
     res.json({ 
       token, 
       student: { 
@@ -363,7 +417,7 @@ app.post('/api/admin/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ adminId: admin.rows[0].id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ adminId: admin.rows[0].id }, JWT_SECRET, { expiresIn: '24h' });
     res.json({ token, admin: { id: admin.rows[0].id, username: admin.rows[0].username, email: admin.rows[0].email } });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
@@ -693,13 +747,7 @@ app.post('/api/question-attempts', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log('\n=== ADMIN CREDENTIALS ===');
-  ADMIN_CREDENTIALS.forEach((admin, index) => {
-    console.log(`Admin ${index + 1}:`);
-    console.log(`  Username: ${admin.username}`);
-    console.log(`  Email: ${admin.email}`);
-    console.log(`  Password: ${admin.password}`);
-    console.log('');
-  });
-  console.log('========================\n');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`Visit the application at http://localhost:${PORT}`);
+  }
 });
