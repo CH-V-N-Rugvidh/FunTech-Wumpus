@@ -99,3 +99,21 @@ export interface WaitingRoomPlayer {
   joinedAt: Date;
   gameId?: string;
 }
+
+export interface Student {
+  id: number;
+  username: string;
+  password_hash: string;
+  full_name: string;
+  email?: string;
+  student_id?: string;
+  created_at: Date;
+}
+
+export interface CSVStudent {
+  username: string;
+  password: string;
+  full_name: string;
+  email?: string;
+  student_id?: string;
+}

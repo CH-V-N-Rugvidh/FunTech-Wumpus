@@ -1032,16 +1032,37 @@ export const techQuestions: Question[] = [
 
 export function getRandomQuestion(excludeIds: number[] = [], customQuestions?: Question[]): Question {
   const questionPool = customQuestions && customQuestions.length > 0 ? customQuestions : techQuestions;
-  const availableQuestions = questionPool.filter(q => !excludeIds.includes(q.id));
+  
+  // Get global asked questions from localStorage
+  const globalAskedQuestions = JSON.parse(localStorage.getItem('global-asked-questions') || '[]');
+  const allExcludeIds = [...new Set([...excludeIds, ...globalAskedQuestions])];
+  const availableQuestions = questionPool.filter(q => !allExcludeIds.includes(q.id));
   
   // If all questions have been asked, reset and start over
   if (availableQuestions.length === 0) {
-    return questionPool[Math.floor(Math.random() * questionPool.length)];
+    localStorage.removeItem('global-asked-questions');
+    // Only exclude current session questions after reset
+    const resetAvailableQuestions = questionPool.filter(q => !excludeIds.includes(q.id));
+    const selectedQuestion = resetAvailableQuestions.length > 0 
+      ? resetAvailableQuestions[Math.floor(Math.random() * resetAvailableQuestions.length)]
+      : questionPool[Math.floor(Math.random() * questionPool.length)];
+    
+    // Add to global asked questions
+    localStorage.setItem('global-asked-questions', JSON.stringify([selectedQuestion.id]));
+    return shuffleOptions(selectedQuestion);
   }
   
   const randomIndex = Math.floor(Math.random() * availableQuestions.length);
   const question = { ...availableQuestions[randomIndex] };
   
+  // Add to global asked questions
+  const newGlobalAsked = [...globalAskedQuestions, question.id];
+  localStorage.setItem('global-asked-questions', JSON.stringify(newGlobalAsked));
+  
+  return shuffleOptions(question);
+}
+
+function shuffleOptions(question: Question): Question {
   // Shuffle options
   const shuffledOptions = [...question.options];
   const correctOption = shuffledOptions[question.correctAnswer];

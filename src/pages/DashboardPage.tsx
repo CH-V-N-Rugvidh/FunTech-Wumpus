@@ -3,6 +3,7 @@ import { Player } from '../types';
 import { gameApi } from '../services/api';
 import WumpusGrid from '../components/WumpusGrid';
 import Leaderboard from '../components/Leaderboard';
+import Footer from '../components/Footer';
 import { Monitor, Users, Trophy, Clock, Zap } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -47,7 +48,7 @@ export default function DashboardPage() {
   const totalScore = players.reduce((sum, p) => sum + (p.score || 0), 0);
 
   return (
-    <div className="min-h-screen text-white pt-20">
+    <div className="min-h-screen text-white pt-20 flex flex-col">
       {/* Header */}
       <div className="glass-dark border-b border-white/10 p-4 sm:p-6 fixed top-0 left-0 right-0 z-30">
         <div className="max-w-7xl mx-auto">
@@ -170,6 +171,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      
+      <Footer />
     </div>
   );
 }

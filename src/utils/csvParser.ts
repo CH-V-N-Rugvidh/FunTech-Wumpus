@@ -1,4 +1,5 @@
 import { Question, CSVQuestion } from '../types';
+import { CSVStudent } from '../types';
 
 export function parseCSVQuestions(csvContent: string): Question[] {
   const lines = csvContent.trim().split('\n');
@@ -67,6 +68,36 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
+export function parseCSVStudents(csvContent: string): CSVStudent[] {
+  const lines = csvContent.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  
+  const students: CSVStudent[] = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    if (values.length < headers.length) continue;
+    
+    const row: any = {};
+    headers.forEach((header, index) => {
+      row[header] = values[index]?.trim() || '';
+    });
+    
+    // Required fields
+    if (!row.username || !row.password || !row.full_name) continue;
+    
+    students.push({
+      username: row.username,
+      password: row.password,
+      full_name: row.full_name || row['full name'],
+      email: row.email,
+      student_id: row.student_id || row['student id'] || row['student_id']
+    });
+  }
+  
+  return students;
+}
+
 // Expected CSV format:
 export const expectedCSVFormat = `
 Expected CSV columns (case-insensitive):
@@ -83,4 +114,19 @@ Expected CSV columns (case-insensitive):
 Example CSV:
 question,option1,option2,option3,option4,correct_answer,category,difficulty,explanation
 "What does AI stand for?","Artificial Intelligence","Automated Intelligence","Advanced Intelligence","Augmented Intelligence","Artificial Intelligence","emerging-tech","easy","AI stands for Artificial Intelligence"
+`;
+
+// Expected CSV format for students:
+export const expectedStudentCSVFormat = `
+Expected CSV columns for students (case-insensitive):
+- username: Student's login username (required)
+- password: Student's login password (required)
+- full_name: Student's full name (required)
+- email: Student's email address (optional)
+- student_id: Student ID number (optional)
+
+Example CSV:
+username,password,full_name,email,student_id
+"john_doe","password123","John Doe","john.doe@university.edu","ST001"
+"jane_smith","mypassword","Jane Smith","jane.smith@university.edu","ST002"
 `;

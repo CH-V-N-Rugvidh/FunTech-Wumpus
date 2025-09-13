@@ -13,11 +13,6 @@ app.use(express.json());
 
 // Initialize database on startup
 initializeDatabase();
-console.log("DB config:", {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  pass: process.env.DB_PASSWORD,
-});
 
 // Admin credentials (you can change these)
 const ADMIN_CREDENTIALS = [
@@ -49,6 +44,28 @@ const verifyAdmin = async (req, res, next) => {
   }
 };
 
+// Middleware to verify student token
+const verifyStudent = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const student = await pool.query('SELECT * FROM students WHERE id = $1', [decoded.studentId]);
+    
+    if (student.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    req.student = student.rows[0];
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
 // Create admin accounts on startup
 async function createAdminAccounts() {
   try {
@@ -66,6 +83,88 @@ async function createAdminAccounts() {
 }
 
 createAdminAccounts();
+
+// Student authentication endpoints
+
+// Student login
+app.post('/api/student/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    const student = await pool.query('SELECT * FROM students WHERE username = $1', [username]);
+    if (student.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, student.rows[0].password_hash);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ studentId: student.rows[0].id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    res.json({ 
+      token, 
+      student: { 
+        id: student.rows[0].id, 
+        username: student.rows[0].username, 
+        fullName: student.rows[0].full_name,
+        email: student.rows[0].email,
+        studentId: student.rows[0].student_id
+      } 
+    });
+  } catch (error) {
+    console.error('Student login error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Admin student management endpoints
+
+// Upload students (admin only)
+app.post('/api/admin/students', verifyAdmin, async (req, res) => {
+  try {
+    const { students } = req.body;
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+    
+    for (const student of students) {
+      try {
+        const hashedPassword = await bcrypt.hash(student.password, 10);
+        await pool.query(
+          'INSERT INTO students (username, password_hash, full_name, email, student_id) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (username) DO UPDATE SET password_hash = $2, full_name = $3, email = $4, student_id = $5',
+          [student.username, hashedPassword, student.full_name, student.email, student.student_id]
+        );
+        successCount++;
+      } catch (error) {
+        errorCount++;
+        errors.push(`Error with student ${student.username}: ${error.message}`);
+      }
+    }
+    
+    res.json({ 
+      message: `Students processed: ${successCount} successful, ${errorCount} errors`,
+      successCount,
+      errorCount,
+      errors: errors.slice(0, 10) // Limit error messages
+    });
+  } catch (error) {
+    console.error('Error uploading students:', error);
+    res.status(500).json({ error: 'Failed to upload students' });
+  }
+});
+
+// Get all students (admin only)
+app.get('/api/admin/students', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, username, full_name, email, student_id, created_at FROM students ORDER BY full_name');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching students:', error);
+    res.status(500).json({ error: 'Failed to fetch students' });
+  }
+});
 
 // Game management endpoints
 

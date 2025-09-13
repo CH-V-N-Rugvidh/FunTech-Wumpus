@@ -8,7 +8,7 @@ const GRID_SIZE = 10;
 const START_POSITION: Position = { x: 0, y: 0 };
 const GOAL_POSITION: Position = { x: 9, y: 9 };
 
-export function useGameState() {
+export function useGameState(studentToken?: string) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -21,6 +21,7 @@ export function useGameState() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [gameSession, setGameSession] = useState<GameSession | null>(null);
   const [questionAttempts, setQuestionAttempts] = useState<QuestionAttempt[]>([]);
+  const [globalAskedQuestions, setGlobalAskedQuestions] = useState<number[]>([]);
 
   // Load questions from database
   const loadQuestions = useCallback(async () => {
@@ -33,6 +34,31 @@ export function useGameState() {
       const { techQuestions } = await import('../data/questions');
       setQuestions(techQuestions);
     }
+  }, []);
+
+  // Load global asked questions from localStorage
+  React.useEffect(() => {
+    const savedAskedQuestions = localStorage.getItem('global-asked-questions');
+    if (savedAskedQuestions) {
+      try {
+        setGlobalAskedQuestions(JSON.parse(savedAskedQuestions));
+      } catch (error) {
+        console.error('Error loading global asked questions:', error);
+        setGlobalAskedQuestions([]);
+      }
+    }
+  }, []);
+
+  // Save global asked questions to localStorage
+  const saveGlobalAskedQuestions = React.useCallback((questionIds: number[]) => {
+    setGlobalAskedQuestions(questionIds);
+    localStorage.setItem('global-asked-questions', JSON.stringify(questionIds));
+  }, []);
+
+  // Reset global asked questions when all questions have been used
+  const resetGlobalAskedQuestions = React.useCallback(() => {
+    setGlobalAskedQuestions([]);
+    localStorage.removeItem('global-asked-questions');
   }, []);
 
   // Load players from database
@@ -129,17 +155,8 @@ export function useGameState() {
     }
   }, [currentGame, isInWaitingRoom]);
 
-  // Get random question
-  const getRandomQuestion = useCallback((excludeIds: number[] = []): Question | null => {
-    const availableQuestions = questions.filter(q => !excludeIds.includes(q.id));
-    
-    if (availableQuestions.length === 0) {
-      return questions.length > 0 ? questions[Math.floor(Math.random() * questions.length)] : null;
-    }
-    
-    const randomIndex = Math.floor(Math.random() * availableQuestions.length);
-    const question = { ...availableQuestions[randomIndex] };
-    
+  // Helper function to shuffle question options
+  const shuffleQuestionOptions = useCallback((question: Question): Question => {
     // Shuffle options
     const shuffledOptions = [...question.options];
     const correctOption = shuffledOptions[question.correctAnswer];
@@ -153,13 +170,58 @@ export function useGameState() {
     question.correctAnswer = shuffledOptions.indexOf(correctOption);
     
     return question;
-  }, [questions]);
+  }, []);
+
+  // Get random question
+  const getRandomQuestion = useCallback((sessionExcludeIds: number[] = []): Question | null => {
+    // Combine session-specific excludes with global asked questions
+    const allExcludeIds = [...new Set([...sessionExcludeIds, ...globalAskedQuestions])];
+    const availableQuestions = questions.filter(q => !allExcludeIds.includes(q.id));
+    
+    // If no questions available, reset global pool and try again
+    if (availableQuestions.length === 0 && questions.length > 0) {
+      resetGlobalAskedQuestions();
+      // Only exclude current session questions after reset
+      const resetAvailableQuestions = questions.filter(q => !sessionExcludeIds.includes(q.id));
+      if (resetAvailableQuestions.length === 0) {
+        // If even session questions are exhausted, allow any question
+        return questions[Math.floor(Math.random() * questions.length)];
+      }
+      const randomIndex = Math.floor(Math.random() * resetAvailableQuestions.length);
+      const selectedQuestion = { ...resetAvailableQuestions[randomIndex] };
+      
+      // Add to global asked questions
+      const newGlobalAsked = [selectedQuestion.id];
+      saveGlobalAskedQuestions(newGlobalAsked);
+      
+      return shuffleQuestionOptions(selectedQuestion);
+    }
+    
+    if (availableQuestions.length === 0) {
+      return null;
+    }
+    
+    const randomIndex = Math.floor(Math.random() * availableQuestions.length);
+    const question = { ...availableQuestions[randomIndex] };
+    
+    // Add to global asked questions
+    const newGlobalAsked = [...globalAskedQuestions, question.id];
+    saveGlobalAskedQuestions(newGlobalAsked);
+    
+    return shuffleQuestionOptions(question);
+  }, [questions, globalAskedQuestions, resetGlobalAskedQuestions, saveGlobalAskedQuestions, shuffleQuestionOptions]);
 
   const createPlayer = useCallback((name: string) => {
     // Check if there's an active game
     if (!currentGame || currentGame.status !== 'active') {
       // Join waiting room instead
       joinWaitingRoom(name);
+      return null;
+    }
+
+    // Check if student is authenticated
+    if (!studentToken) {
+      console.error('Student authentication required');
       return null;
     }
 
@@ -216,7 +278,7 @@ export function useGameState() {
     }
     
     // Generate first question
-    const firstQuestion = getRandomQuestion([]);
+    const firstQuestion = getRandomQuestion();
     if (firstQuestion) {
       setCurrentQuestion(firstQuestion);
       
@@ -228,9 +290,15 @@ export function useGameState() {
     }
     
     return newPlayer;
-  }, [players, questions, getRandomQuestion, currentGame]);
+  }, [players, questions, getRandomQuestion, currentGame, studentToken]);
 
   const joinWaitingRoom = useCallback(async (name: string) => {
+    // Check if student is authenticated
+    if (!studentToken) {
+      console.error('Student authentication required');
+      return;
+    }
+
     try {
       const result = await gameApi.joinWaitingRoom(name);
       setWaitingPlayerId(result.playerId);
@@ -240,7 +308,7 @@ export function useGameState() {
     } catch (error) {
       console.error('Error joining waiting room:', error);
     }
-  }, [loadWaitingRoom]);
+  }, [loadWaitingRoom, studentToken]);
 
   const leaveWaitingRoom = useCallback(async () => {
     if (waitingPlayerId) {
@@ -372,6 +440,7 @@ export function useGameState() {
     setGameSession(null);
     setQuestionAttempts([]);
     localStorage.removeItem('waiting-player-name');
+    // Don't reset global asked questions here - they should persist across game sessions
   }, []);
 
   const getLeaderboard = useCallback(() => {

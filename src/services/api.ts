@@ -90,6 +90,39 @@ export const adminApi = {
       }
     });
     return response.json();
+  },
+
+  uploadStudents: async (students: any[], token: string) => {
+    const response = await fetch(`${API_BASE_URL}/admin/students`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ students })
+    });
+    return response.json();
+  },
+
+  getAllStudents: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/admin/students`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.json();
+  }
+};
+
+// Student API
+export const studentApi = {
+  login: async (username: string, password: string) => {
+    const response = await fetch(`${API_BASE_URL}/student/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    return response.json();
   }
 };
 

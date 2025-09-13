@@ -218,6 +218,19 @@ async function initializeDatabase() {
       )
     `);
 
+    // Create students table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS students (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        full_name VARCHAR(100) NOT NULL,
+        email VARCHAR(100),
+        student_id VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('Database tables initialized successfully');
     
     // Run migrations to add any missing columns

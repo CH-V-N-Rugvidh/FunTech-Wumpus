@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Shield, Upload, LogOut, Users, Database, Play, Square, Download, Clock, History, FileDown } from 'lucide-react';
+import { Shield, Upload, LogOut, Users, Database, Play, Square, Download, Clock, History, FileDown, GraduationCap, UserPlus, AlertCircle } from 'lucide-react';
 import { adminApi } from '../services/api';
 import { parseCSVQuestions, expectedCSVFormat } from '../utils/csvParser';
 import { Admin } from '../types';
+import StudentCSVUploader from '../components/StudentCSVUploader';
+import Footer from '../components/Footer';
 
 export default function AdminPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -17,6 +19,9 @@ export default function AdminPage() {
   const [gameTimeLeft, setGameTimeLeft] = useState<number>(0);
   const [allGames, setAllGames] = useState<any[]>([]);
   const [showGameHistory, setShowGameHistory] = useState(false);
+  const [showStudentUploader, setShowStudentUploader] = useState(false);
+  const [students, setStudents] = useState<any[]>([]);
+  const [showStudentList, setShowStudentList] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +119,16 @@ export default function AdminPage() {
     reader.readAsText(file);
   };
 
+  const loadStudents = async () => {
+    try {
+      const token = localStorage.getItem('admin-token');
+      const studentList = await adminApi.getAllStudents(token!);
+      setStudents(studentList);
+    } catch (error) {
+      console.error('Error loading students:', error);
+    }
+  };
+
   // Check for existing token on component mount
   React.useEffect(() => {
     const token = localStorage.getItem('admin-token');
@@ -122,6 +137,7 @@ export default function AdminPage() {
       loadGameStatus();
       loadWaitingPlayers();
       loadAllGames();
+      loadStudents();
     }
   }, []);
 
@@ -172,6 +188,7 @@ export default function AdminPage() {
         loadGameStatus();
         loadWaitingPlayers();
         loadAllGames();
+        loadStudents();
       }, 2000);
       
       return () => clearInterval(interval);
@@ -307,7 +324,7 @@ export default function AdminPage() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gray-700 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <div className="glass-dark rounded-2xl p-8 max-w-md w-full">
           <div className="text-center mb-8">
             <Shield className="w-16 h-16 text-blue-400 mx-auto mb-4 pulse-glow" />
@@ -363,7 +380,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-700 p-4">
+    <div className="min-h-screen p-4 flex flex-col">
       {/* Header */}
       <div className="glass-dark border-b border-white/10 p-6 mb-8 rounded-2xl">
         <div className="flex justify-between items-center">
@@ -383,6 +400,13 @@ export default function AdminPage() {
               <span>Game History</span>
             </button>
             <button
+              onClick={() => setShowStudentList(!showStudentList)}
+              className="flex items-center space-x-2 text-white/80 hover:text-white bg-green-500/20 hover:bg-green-500/30 px-4 py-2 rounded-lg transition-all duration-300"
+            >
+              <GraduationCap className="w-4 h-4" />
+              <span>Students ({students.length})</span>
+            </button>
+            <button
               onClick={handleLogout}
               className="flex items-center space-x-2 text-white/80 hover:text-white bg-red-500/20 hover:bg-red-500/30 px-4 py-2 rounded-lg transition-all duration-300"
             >
@@ -394,6 +418,56 @@ export default function AdminPage() {
       </div>
 
       <div className="max-w-6xl mx-auto space-y-8">
+        {/* Student Management Section */}
+        {showStudentList && (
+          <div className="glass-dark rounded-2xl p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <GraduationCap className="w-8 h-8 text-green-400" />
+                <h2 className="text-2xl font-bold text-white">Student Management</h2>
+              </div>
+              <button
+                onClick={() => setShowStudentUploader(true)}
+                className="bg-gradient-to-r from-green-500 to-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transition-all duration-300 btn-glow flex items-center space-x-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Upload Students CSV</span>
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {students.length > 0 ? (
+                students.map((student) => (
+                  <div key={student.id} className="glass rounded-xl p-4 border border-white/20">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="flex items-center space-x-3">
+                          <span className="text-white font-semibold">{student.full_name}</span>
+                          <span className="text-blue-400 text-sm">@{student.username}</span>
+                          {student.student_id && (
+                            <span className="text-white/70 text-sm">ID: {student.student_id}</span>
+                          )}
+                        </div>
+                        {student.email && (
+                          <p className="text-white/60 text-sm mt-1">{student.email}</p>
+                        )}
+                        <p className="text-white/60 text-sm">
+                          Created: {new Date(student.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <GraduationCap className="w-12 h-12 text-white/50 mx-auto mb-4" />
+                  <p className="text-white/70">No students found. Upload a CSV file to add students.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Game History Section */}
         {showGameHistory && (
           <div className="glass-dark rounded-2xl p-8">
@@ -634,6 +708,14 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      {/* Student CSV Uploader Modal */}
+      {showStudentUploader && (
+        <StudentCSVUploader
+          onClose={() => setShowStudentUploader(false)}
+          onSuccess={loadStudents}
+        />
+      )}
     </div>
   );
 }

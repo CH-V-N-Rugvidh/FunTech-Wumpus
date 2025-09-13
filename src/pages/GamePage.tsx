@@ -6,8 +6,16 @@ import PlayerStats from '../components/PlayerStats';
 import GameComplete from '../components/GameComplete';
 import Leaderboard from '../components/Leaderboard';
 import { Bot, Clock, Play, ArrowLeft, Users, Sparkles } from 'lucide-react';
+import { Student } from '../types';
+import Footer from '../components/Footer';
 
-export default function GamePage() {
+interface GamePageProps {
+  student: Student;
+  studentToken: string;
+  onLogout: () => void;
+}
+
+export default function GamePage({ student, studentToken, onLogout }: GamePageProps) {
   const {
     currentPlayer,
     currentQuestion,
@@ -27,10 +35,17 @@ export default function GamePage() {
     startPosition,
     goalPosition,
     players
-  } = useGameState();
+  } = useGameState(studentToken);
 
   const [playerName, setPlayerName] = useState('');
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+
+  // Set player name from student data
+  React.useEffect(() => {
+    if (student && !playerName) {
+      setPlayerName(student.full_name || student.username);
+    }
+  }, [student, playerName]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -48,7 +63,7 @@ export default function GamePage() {
   // Waiting room view
   if (isInWaitingRoom) {
     return (
-      <div className="min-h-screen p-4">
+      <div className="min-h-screen p-4 flex flex-col">
         <div className="max-w-2xl mx-auto pt-8">
           <div className="glass rounded-2xl p-8 shadow-2xl">
             <div className="text-center mb-8">
@@ -81,16 +96,23 @@ export default function GamePage() {
               >
                 Leave Waiting Room
               </button>
+              <button
+                onClick={onLogout}
+                className="ml-4 bg-gray-500/20 hover:bg-gray-500/30 text-gray-300 font-semibold py-3 px-6 rounded-xl transition-all duration-300 border border-gray-400/50"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
 
   if (!gameStarted) {
     return (
-      <div className="min-h-screen p-4">
+      <div className="min-h-screen p-4 flex flex-col">
         <div className="max-w-md mx-auto pt-8">
           <div className="glass rounded-2xl p-8 shadow-2xl float">
             <div className="text-center mb-8">
@@ -98,7 +120,7 @@ export default function GamePage() {
                 <Bot className="w-20 h-20 text-white mx-auto mb-4 pulse-glow" />
                 <Sparkles className="w-6 h-6 text-yellow-300 absolute -top-2 -right-2 animate-pulse" />
               </div>
-              <h1 className="text-4xl font-bold text-white mb-2 gradient-text">FunTech Wumpus</h1>
+              <h1 className="text-4xl font-bold text-white mb-2 gradient-text">Welcome, {student.full_name}!</h1>
               <p className="text-white/80 text-lg">Guide the Wumpus through tech challenges!</p>
               
               {currentGame && (
@@ -123,14 +145,14 @@ export default function GamePage() {
             <form onSubmit={handleStartGame} className="space-y-4">
               <div>
                 <label htmlFor="playerName" className="block text-sm font-medium text-white/90 mb-3">
-                  {currentGame?.status === 'active' ? 'Enter your name to join' : 'Enter your name'}
+                  {currentGame?.status === 'active' ? 'Confirm your name to join' : 'Confirm your name'}
                 </label>
                 <input
                   type="text"
                   id="playerName"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Your name"
+                  placeholder={student.full_name || student.username}
                   className="w-full px-4 py-4 glass-dark rounded-xl text-white placeholder-white/50 focus:ring-2 focus:ring-blue-400 focus:outline-none transition-all duration-300"
                   required
                 />
@@ -154,6 +176,12 @@ export default function GamePage() {
               >
                 {showLeaderboard ? 'Hide' : 'View'} Leaderboard
               </button>
+              <button
+                onClick={onLogout}
+                className="w-full mt-4 text-white/60 hover:text-white/80 font-medium transition-colors duration-300"
+              >
+                Logout
+              </button>
             </div>
             
             {showLeaderboard && (
@@ -163,13 +191,14 @@ export default function GamePage() {
             )}
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
 
   if (currentPlayer?.completed) {
     return (
-      <div className="min-h-screen p-4">
+      <div className="min-h-screen p-4 flex flex-col">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-6">
             <button
@@ -185,12 +214,13 @@ export default function GamePage() {
             <Leaderboard players={players} />
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4">
+    <div className="min-h-screen p-4 flex flex-col">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0">
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 gradient-text">FunTech Wumpus</h1>
@@ -210,6 +240,24 @@ export default function GamePage() {
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Start</span>
+          </button>
+          <button
+            onClick={onLogout}
+            className="inline-flex items-center space-x-2 text-white/60 hover:text-white/80 font-medium transition-colors duration-300 glass px-4 py-2 rounded-lg"
+          >
+            <span>Logout</span>
+          </button>
+          <button
+            onClick={onLogout}
+            className="inline-flex items-center space-x-2 text-white/60 hover:text-white/80 font-medium transition-colors duration-300 glass px-4 py-2 rounded-lg"
+          >
+            <span>Logout</span>
+          </button>
+          <button
+            onClick={onLogout}
+            className="inline-flex items-center space-x-2 text-white/60 hover:text-white/80 font-medium transition-colors duration-300 glass px-4 py-2 rounded-lg"
+          >
+            <span>Logout</span>
           </button>
         </div>
         
@@ -238,6 +286,7 @@ export default function GamePage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
