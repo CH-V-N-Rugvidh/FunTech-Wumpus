@@ -16,8 +16,8 @@ export function useGameState(studentToken?: string) {
   const [currentGame, setCurrentGame] = useState<any>(null);
   const [gameTimeLeft, setGameTimeLeft] = useState<number>(0);
   const [waitingRoomPlayers, setWaitingRoomPlayers] = useState<any[]>([]);
-  const [isInWaitingRoom, setIsInWaitingRoom] = useState(false);
-  const [waitingPlayerId, setWaitingPlayerId] = useState<string | null>(null);
+  const [isInWaitingRoom, setIsInWaitingRoom] = useState(() => localStorage.getItem('isInWaitingRoom') === 'true');
+  const [waitingPlayerId, setWaitingPlayerId] = useState<string | null>(localStorage.getItem('waitingPlayerId') || null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [gameSession, setGameSession] = useState<GameSession | null>(null);
   const [questionAttempts, setQuestionAttempts] = useState<QuestionAttempt[]>([]);
@@ -451,6 +451,8 @@ export function useGameState(studentToken?: string) {
     setGameSession(null);
     setQuestionAttempts([]);
     localStorage.removeItem('waiting-player-name');
+    localStorage.removeItem('isInWaitingRoom');
+    localStorage.removeItem('waitingPlayerId');
     // Don't reset global asked questions here - they should persist across game sessions
   }, []);
 
@@ -484,6 +486,15 @@ export function useGameState(studentToken?: string) {
       console.error('Error loading existing player:', error);
     }
   }, []);
+
+  React.useEffect(() => {
+    localStorage.setItem('isInWaitingRoom', isInWaitingRoom.toString());
+    if (waitingPlayerId) {
+      localStorage.setItem('waitingPlayerId', waitingPlayerId);
+    } else {
+      localStorage.removeItem('waitingPlayerId');
+    }
+  }, [isInWaitingRoom, waitingPlayerId]);
 
   return {
     players,

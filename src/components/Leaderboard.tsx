@@ -62,7 +62,7 @@ export default function Leaderboard({ players, isCompact = false }: LeaderboardP
         <h2 className={`${isCompact ? 'text-lg' : 'text-xl'} font-bold text-white`}>Leaderboard</h2>
       </div>
       
-      <div className="space-y-3">
+      <div className="space-y-3 min-w-full">
         {completedPlayers.map((player, index) => (
           <div
             key={player.id}

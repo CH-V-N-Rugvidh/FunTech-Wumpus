@@ -412,3 +412,18 @@ body {
     transform: none;
   }
 }
+
+@media (max-width: 640px) {
+  .grid-cols-3 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+  .grid-cols-2 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+  .space-y-3 > div {
+    min-width: 100%;
+  }
+  .glass-dark {
+    width: 100%;
+  }
+}

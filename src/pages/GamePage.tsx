@@ -88,6 +88,11 @@ export default function GamePage({ student, studentToken, onLogout }: GamePagePr
                 ))}
               </div>
             </div>
+
+            <div className="" style={{ marginBottom: '1.5rem' }}>
+              <h3 className="text-xl font-bold text-white mb-4">Dashboard Preview</h3>
+              <Leaderboard players={players} isCompact={true} />
+            </div>
             
             <div className="text-center">
               <button
@@ -240,18 +245,6 @@ export default function GamePage({ student, studentToken, onLogout }: GamePagePr
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Start</span>
-          </button>
-          <button
-            onClick={onLogout}
-            className="inline-flex items-center space-x-2 text-white/60 hover:text-white/80 font-medium transition-colors duration-300 glass px-4 py-2 rounded-lg"
-          >
-            <span>Logout</span>
-          </button>
-          <button
-            onClick={onLogout}
-            className="inline-flex items-center space-x-2 text-white/60 hover:text-white/80 font-medium transition-colors duration-300 glass px-4 py-2 rounded-lg"
-          >
-            <span>Logout</span>
           </button>
           <button
             onClick={onLogout}

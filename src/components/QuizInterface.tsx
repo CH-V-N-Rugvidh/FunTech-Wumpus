@@ -51,7 +51,7 @@ export default function QuizInterface({ question, onAnswer, disabled = false }: 
     } else if (isAnswered && optionIndex === question.correctAnswer) {
       baseClass += "bg-green-400/20 border-green-400 text-green-300 shadow-lg ";
     } else {
-      baseClass += "glass border-white/20 hover:border-blue-400 hover:bg-white/10 active:scale-95 text-white ";
+      baseClass += "glass border-white/20 hover:bg-white/10 active:scale-95 text-white ";
     }
     
     return baseClass;

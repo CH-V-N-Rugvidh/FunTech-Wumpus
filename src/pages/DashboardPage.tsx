@@ -133,7 +133,7 @@ export default function DashboardPage() {
                       />
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                       <div className="text-center">
                         <div className="font-bold text-white">{player.questionsAnswered}</div>
                         <div className="text-white/70">Questions</div>
