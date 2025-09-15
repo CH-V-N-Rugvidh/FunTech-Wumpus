@@ -278,7 +278,6 @@ export default function GamePage({ student, studentToken, onLogout }: GamePagePr
           </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

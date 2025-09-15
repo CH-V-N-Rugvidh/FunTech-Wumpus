@@ -207,7 +207,7 @@ async function initializeDatabase() {
         status VARCHAR(20) DEFAULT 'waiting',
         started_at TIMESTAMP,
         ended_at TIMESTAMP,
-        duration_minutes INTEGER DEFAULT 15,
+        duration_minutes INTEGER DEFAULT 1,
         created_by INTEGER REFERENCES admins(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )

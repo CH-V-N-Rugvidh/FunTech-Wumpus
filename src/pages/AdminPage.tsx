@@ -505,7 +505,7 @@ export default function AdminPage() {
                         Created: {new Date(game.created_at).toLocaleString()}
                       </p>
                     </div>
-                    <button
+                    <button disabled={true}
                       onClick={() => handleDownloadGameLeaderboard(game.id)}
                       className="bg-gradient-to-r from-green-500 to-blue-600 text-white px-3 py-1 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 btn-glow flex items-center space-x-1"
                     >
