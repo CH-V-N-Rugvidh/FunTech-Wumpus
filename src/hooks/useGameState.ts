@@ -8,7 +8,7 @@ const GRID_SIZE = 10;
 const START_POSITION: Position = { x: 0, y: 0 };
 const GOAL_POSITION: Position = { x: 9, y: 9 };
 
-export function useGameState(studentToken?: string) {
+export function useGameState(studentToken?: string, onTimeout?: () => void) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -141,13 +141,16 @@ export function useGameState(studentToken?: string) {
       setGameStarted(false);
       setCurrentPlayer(null);
       setCurrentQuestion(null);
+      if (typeof onTimeout === 'function') {
+        onTimeout();
+      }
     }
-  }, [gameTimeLeft, currentGame]);
+  }, [gameTimeLeft, currentGame, onTimeout]);
 
-  // Check if player should be redirected from waiting room to game
+  // Auto-join all waiting students when game starts
   React.useEffect(() => {
-    if (isInWaitingRoom && currentGame?.status === 'active') {
-      // Game has started, redirect player to game
+    if (currentGame?.status === 'active' && isInWaitingRoom) {
+      // Game has started, auto-join this student
       const playerName = localStorage.getItem('waiting-player-name');
       if (playerName) {
         setIsInWaitingRoom(false);
@@ -156,6 +159,8 @@ export function useGameState(studentToken?: string) {
         createPlayer(playerName);
       }
     }
+    // If this is the admin or a controller, you could also loop through waitingRoomPlayers and call createPlayer for each
+    // But for a student client, just auto-join self if in waiting room
   }, [currentGame, isInWaitingRoom]);
 
   // Helper function to shuffle question options

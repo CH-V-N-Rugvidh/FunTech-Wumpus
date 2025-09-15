@@ -53,6 +53,18 @@ function App() {
     localStorage.removeItem('student-data');
   };
 
+
+  // Listen for redirect-dashboard event (from GamePage timeout)
+  React.useEffect(() => {
+    const handleRedirectDashboard = () => {
+      setCurrentView('dashboard');
+    };
+    window.addEventListener('redirect-dashboard', handleRedirectDashboard);
+    return () => {
+      window.removeEventListener('redirect-dashboard', handleRedirectDashboard);
+    };
+  }, []);
+
   // Show student login if not logged in and not accessing admin
   if (!isStudentLoggedIn && currentView !== 'admin') {
     return <StudentLogin onLogin={handleStudentLogin} />;

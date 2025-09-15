@@ -378,20 +378,29 @@ app.post('/api/waiting-room/join', async (req, res) => {
   try {
     const { playerName } = req.body;
     const playerId = `waiting-${Date.now()}-${Math.random()}`;
-    
+
     // Get current waiting game
     const gameResult = await pool.query(
       'SELECT id FROM games WHERE status = $1 ORDER BY created_at DESC LIMIT 1',
       ['waiting']
     );
-    
+
     const gameId = gameResult.rows.length > 0 ? gameResult.rows[0].id : null;
-    
+
+    // Check for duplicate player name in waiting room (case-insensitive, trimmed)
+    const dupCheck = await pool.query(
+      'SELECT * FROM waiting_room WHERE LOWER(TRIM(player_name)) = LOWER(TRIM($1)) AND (game_id = $2 OR $2 IS NULL)',
+      [playerName, gameId]
+    );
+    if (dupCheck.rows.length > 0) {
+      return res.status(409).json({ error: 'Player with this name is already in the waiting room.' });
+    }
+
     await pool.query(
       'INSERT INTO waiting_room (id, player_name, game_id) VALUES ($1, $2, $3)',
       [playerId, playerName, gameId]
     );
-    
+
     res.json({ playerId, message: 'Joined waiting room successfully' });
   } catch (error) {
     console.error('Error joining waiting room:', error);
