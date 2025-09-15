@@ -135,6 +135,22 @@ export const gameApi = {
   },
 
   savePlayer: async (player: any) => {
+    // Check if player already exists to prevent duplicates
+    try {
+      const existingPlayer = await fetch(`${API_BASE_URL}/players/${player.id}`);
+      if (existingPlayer.ok) {
+        // Player exists, update instead of create
+        const response = await fetch(`${API_BASE_URL}/players`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(player)
+        });
+        return response.json();
+      }
+    } catch (error) {
+      // Player doesn't exist, continue with creation
+    }
+    
     const response = await fetch(`${API_BASE_URL}/players`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

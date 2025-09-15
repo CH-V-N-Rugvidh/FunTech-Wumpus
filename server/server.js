@@ -299,35 +299,15 @@ app.post('/api/admin/games/:gameId/start', verifyAdmin, async (req, res) => {
       ['active', gameId]
     );
     
-    // Move waiting room players to active players
-    const waitingPlayers = await pool.query(
-      'SELECT * FROM waiting_room WHERE game_id = $1 OR game_id IS NULL',
-      [gameId]
-    );
-    
-    for (const waitingPlayer of waitingPlayers.rows) {
-      const playerId = `player-${Date.now()}-${Math.random()}`;
-      const sessionId = `session-${Date.now()}-${Math.random()}`;
-      
-      await pool.query(`
-        INSERT INTO players (id, game_id, name, current_position, previous_position, path_taken, visited_positions, game_session_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      `, [
-        playerId, gameId, waitingPlayer.player_name, 
-        JSON.stringify({ x: 0, y: 0 }), null,
-        JSON.stringify([{ x: 0, y: 0 }]),
-        JSON.stringify([{ x: 0, y: 0 }]),
-        sessionId
-      ]);
-      
-      await pool.query(`
-        INSERT INTO game_sessions (id, game_id, player_id, path_taken, visited_positions)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [sessionId, gameId, playerId, JSON.stringify([{ x: 0, y: 0 }]), JSON.stringify([{ x: 0, y: 0 }])]);
-    }
-    
-    // Clear waiting room
-    await pool.query('DELETE FROM waiting_room WHERE game_id = $1 OR game_id IS NULL', [gameId]);
+    // Don't create players here - let the frontend handle player creation
+    // Just clear the waiting room after a delay to allow frontend to process
+    setTimeout(async () => {
+      try {
+        await pool.query('DELETE FROM waiting_room WHERE game_id = $1 OR game_id IS NULL', [gameId]);
+      } catch (error) {
+        console.error('Error clearing waiting room:', error);
+      }
+    }, 5000); // 5 second delay to allow frontend to process
     
     res.json({ message: 'Game started successfully' });
   } catch (error) {

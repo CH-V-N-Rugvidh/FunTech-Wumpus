@@ -55,22 +55,36 @@ export default function GamePage({ student, studentToken, onLogout }: GamePagePr
 
   // Handle player entry after name is submitted
   React.useEffect(() => {
-    if (!nameSubmitted || !playerName) return;
-    if (!currentPlayer) {
-      if (currentGame?.status === 'active') {
-        createPlayer(playerName);
-      } else if (currentGame?.status === 'waiting' || !currentGame) {
-        // Prevent duplicate join: check if already in waiting room
-        const alreadyInWaitingRoom = waitingRoomPlayers.some(
-          (p) => p.player_name?.trim().toLowerCase() === playerName.trim().toLowerCase()
-        );
-        if (!alreadyInWaitingRoom) {
-          joinWaitingRoom(playerName);
-        }
-      }
+    if (!nameSubmitted || !playerName || currentPlayer) return;
+    
+    // Check if already in waiting room to prevent duplicates
+    const alreadyInWaitingRoom = waitingRoomPlayers.some(
+      (p) => p.player_name?.trim().toLowerCase() === playerName.trim().toLowerCase()
+    );
+    
+    if (currentGame?.status === 'active') {
+      createPlayer(playerName);
+    } else if ((currentGame?.status === 'waiting' || !currentGame) && !alreadyInWaitingRoom && !isInWaitingRoom) {
+      joinWaitingRoom(playerName);
     }
-    // If already in waiting room, useGameState will handle auto-join on game start
-  }, [nameSubmitted, playerName, currentPlayer, currentGame, createPlayer, joinWaitingRoom, waitingRoomPlayers]);
+  }, [nameSubmitted, playerName, currentPlayer, currentGame?.status, waitingRoomPlayers, isInWaitingRoom]);
+
+  // Prevent multiple effects from running
+  const [hasInitialized, setHasInitialized] = React.useState(false);
+  
+  React.useEffect(() => {
+    if (nameSubmitted && !hasInitialized) {
+      setHasInitialized(true);
+    }
+  }, [nameSubmitted, hasInitialized]);
+
+  // Only run auto-join logic once when game becomes active
+  React.useEffect(() => {
+    if (currentGame?.status === 'active' && isInWaitingRoom && !currentPlayer && hasInitialized) {
+      // The useGameState hook will handle the auto-join
+      console.log('Game started, auto-joining from waiting room');
+    }
+  }, [currentGame?.status, isInWaitingRoom, currentPlayer, hasInitialized]);
 
 
   const formatTime = (seconds: number) => {
@@ -100,6 +114,7 @@ export default function GamePage({ student, studentToken, onLogout }: GamePagePr
             required
             maxLength={32}
             autoFocus
+            style={{ backgroundColor: 'rgba(63, 57, 57, 0.19)', color: 'white' }}
           />
           <button
             type="submit"

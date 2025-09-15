@@ -22,6 +22,7 @@ export function useGameState(studentToken?: string, onTimeout?: () => void) {
   const [gameSession, setGameSession] = useState<GameSession | null>(null);
   const [questionAttempts, setQuestionAttempts] = useState<QuestionAttempt[]>([]);
   const [playerAskedQuestions, setPlayerAskedQuestions] = useState<{ [playerId: string]: number[] }>({});
+  const [isCreatingPlayer, setIsCreatingPlayer] = useState(false);
 
   // Load questions from database
   const loadQuestions = useCallback(async () => {
@@ -149,19 +150,20 @@ export function useGameState(studentToken?: string, onTimeout?: () => void) {
 
   // Auto-join all waiting students when game starts
   React.useEffect(() => {
-    if (currentGame?.status === 'active' && isInWaitingRoom) {
+    if (currentGame?.status === 'active' && isInWaitingRoom && !currentPlayer && !isCreatingPlayer) {
       // Game has started, auto-join this student
       const playerName = localStorage.getItem('waiting-player-name');
       if (playerName) {
+        setIsCreatingPlayer(true);
         setIsInWaitingRoom(false);
         setWaitingPlayerId(null);
         localStorage.removeItem('waiting-player-name');
+        localStorage.removeItem('isInWaitingRoom');
+        localStorage.removeItem('waitingPlayerId');
         createPlayer(playerName);
       }
     }
-    // If this is the admin or a controller, you could also loop through waitingRoomPlayers and call createPlayer for each
-    // But for a student client, just auto-join self if in waiting room
-  }, [currentGame, isInWaitingRoom]);
+  }, [currentGame?.status, isInWaitingRoom, currentPlayer, isCreatingPlayer]);
 
   // Helper function to shuffle question options
   const shuffleQuestionOptions = useCallback((question: Question): Question => {
@@ -227,6 +229,11 @@ export function useGameState(studentToken?: string, onTimeout?: () => void) {
   }, [questions, getPlayerAskedQuestions, savePlayerAskedQuestions, shuffleQuestionOptions]);
 
   const createPlayer = useCallback((name: string) => {
+    // Prevent multiple simultaneous player creation
+    if (isCreatingPlayer || currentPlayer) {
+      return currentPlayer;
+    }
+
     // Check if there's an active game
     if (!currentGame || currentGame.status !== 'active') {
       // Join waiting room instead
@@ -237,17 +244,30 @@ export function useGameState(studentToken?: string, onTimeout?: () => void) {
     // Check if student is authenticated
     if (!studentToken) {
       console.error('Student authentication required');
+      setIsCreatingPlayer(false);
       return null;
     }
 
     if (questions.length === 0) {
       console.error('No questions available');
+      setIsCreatingPlayer(false);
       return null;
     }
 
+    // Prevent duplicate player for same name and gameId
+    const existingPlayer = players.find(
+      (p) => p.name.trim().toLowerCase() === name.trim().toLowerCase() && p.gameId === currentGame.id
+    );
+    if (existingPlayer) {
+      setCurrentPlayer(existingPlayer);
+      setGameStarted(true);
+      return existingPlayer;
+    }
+
+    setIsCreatingPlayer(true);
     const playerId = `player-${Date.now()}-${Math.random()}`;
     const sessionId = `session-${Date.now()}-${Math.random()}`;
-    
+
     const newPlayer: Player = {
       id: playerId,
       gameId: currentGame.id,
@@ -269,7 +289,7 @@ export function useGameState(studentToken?: string, onTimeout?: () => void) {
     setCurrentPlayer(newPlayer);
     setGameStarted(true);
     setQuestionAttempts([]);
-    
+
     // Create game session
     const newGameSession: GameSession = {
       id: sessionId,
@@ -282,7 +302,7 @@ export function useGameState(studentToken?: string, onTimeout?: () => void) {
       visitedPositions: [{ ...START_POSITION }]
     };
     setGameSession(newGameSession);
-    
+
     // Save to database
     try {
       gameApi.savePlayer(newPlayer);
@@ -290,21 +310,22 @@ export function useGameState(studentToken?: string, onTimeout?: () => void) {
     } catch (error) {
       console.error('Error saving to database:', error);
     }
-    
+
     // Generate first question
     const firstQuestion = getRandomQuestion(playerId);
     if (firstQuestion) {
       setCurrentQuestion(firstQuestion);
-      
+
       // Update player with first question
       const playerWithQuestion = { ...newPlayer, askedQuestions: [firstQuestion.id] };
       setCurrentPlayer(playerWithQuestion);
       const playersWithQuestion = updatedPlayers.map(p => p.id === playerId ? playerWithQuestion : p);
       setPlayers(playersWithQuestion);
     }
-    
+
+    setIsCreatingPlayer(false);
     return newPlayer;
-  }, [players, questions, getRandomQuestion, currentGame, studentToken]);
+  }, [players, questions, getRandomQuestion, currentGame, studentToken, isCreatingPlayer, currentPlayer]);
 
   const joinWaitingRoom = useCallback(async (name: string) => {
     // Check if student is authenticated
@@ -317,6 +338,8 @@ export function useGameState(studentToken?: string, onTimeout?: () => void) {
       const result = await gameApi.joinWaitingRoom(name);
       setWaitingPlayerId(result.playerId);
       setIsInWaitingRoom(true);
+      localStorage.setItem('isInWaitingRoom', 'true');
+      localStorage.setItem('waitingPlayerId', result.playerId);
       localStorage.setItem('waiting-player-name', name);
       loadWaitingRoom();
     } catch (error) {
@@ -330,6 +353,8 @@ export function useGameState(studentToken?: string, onTimeout?: () => void) {
         await gameApi.leaveWaitingRoom(waitingPlayerId);
         setWaitingPlayerId(null);
         setIsInWaitingRoom(false);
+        localStorage.removeItem('isInWaitingRoom');
+        localStorage.removeItem('waitingPlayerId');
         localStorage.removeItem('waiting-player-name');
         loadWaitingRoom();
       } catch (error) {
@@ -455,6 +480,7 @@ export function useGameState(studentToken?: string, onTimeout?: () => void) {
     setWaitingPlayerId(null);
     setGameSession(null);
     setQuestionAttempts([]);
+    setIsCreatingPlayer(false);
     localStorage.removeItem('waiting-player-name');
     localStorage.removeItem('isInWaitingRoom');
     localStorage.removeItem('waitingPlayerId');
